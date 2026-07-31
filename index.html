@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Savvy Scanner - Manifest Manager</title>
     <style>
+        html {
+            overflow-x: hidden;
+            width: 100%;
+        }
+        
         * {
             margin: 0;
             padding: 0;
@@ -18,16 +23,18 @@
             padding: 10px;
             color: #333;
             overflow-x: hidden;
+            width: 100%;
+            max-width: 100%;
         }
 
         .container {
             max-width: 100%;
+            width: 100%;
             margin: 0 auto;
             background: white;
             border-radius: 12px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             overflow: hidden;
-            width: 100%;
             box-sizing: border-box;
         }
         
@@ -39,8 +46,9 @@
             .container {
                 border-radius: 8px;
                 margin: 0;
-                width: 100vw;
-                margin-left: -5px;
+                width: 100%;
+                max-width: 100%;
+                padding: 0;
             }
         }
 
@@ -67,6 +75,8 @@
             grid-template-columns: 1fr 1fr;
             gap: 30px;
             box-sizing: border-box;
+            width: 100%;
+            max-width: 100%;
         }
 
         @media (max-width: 768px) {
@@ -74,6 +84,8 @@
                 grid-template-columns: 1fr;
                 padding: 15px;
                 gap: 15px;
+                width: 100%;
+                max-width: 100%;
             }
         }
 
@@ -83,6 +95,8 @@
             border-radius: 8px;
             border: 2px solid #e9ecef;
             box-sizing: border-box;
+            width: 100%;
+            max-width: 100%;
         }
 
         .card {
@@ -92,6 +106,8 @@
             border: 2px solid #e9ecef;
             box-sizing: border-box;
             margin-bottom: 20px;
+            width: 100%;
+            max-width: 100%;
         }
 
         .section h2 {
@@ -129,12 +145,14 @@
         input[type="file"],
         select {
             width: 100%;
+            max-width: 100%;
             padding: 12px;
             border: 2px solid #dee2e6;
             border-radius: 6px;
             font-size: 1em;
             transition: border-color 0.3s;
             font-family: inherit;
+            box-sizing: border-box;
         }
 
         input[type="text"]:focus,
@@ -143,6 +161,18 @@
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        button {
+            max-width: 100%;
+            box-sizing: border-box;
+            overflow-wrap: break-word;
+        }
+        
+        label, p, h1, h2, h3, h4, h5, h6 {
+            max-width: 100%;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
         }
 
         .file-input-wrapper {
