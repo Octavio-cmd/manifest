@@ -175,6 +175,15 @@
             background: #5a6268;
         }
 
+        .button-drive {
+            background: #ea4335;
+            margin-top: 8px;
+        }
+
+        .button-drive:hover {
+            background: #c5221f;
+        }
+
         .status {
             padding: 15px;
             border-radius: 6px;
@@ -320,6 +329,36 @@
         .full-width {
             grid-column: 1 / -1;
         }
+
+        .tab-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            background: #e9ecef;
+            border: 2px solid transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .tab-btn.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -340,7 +379,13 @@
                     <div class="truck-number-hint">Identificador único del camión/carga</div>
                 </div>
 
-                <div class="form-group">
+                <div class="tab-buttons">
+                    <button class="tab-btn active" onclick="switchTab('local')">📁 Archivo Local</button>
+                    <button class="tab-btn" onclick="switchTab('drive')">☁️ Google Drive</button>
+                </div>
+
+                <!-- Local File Tab -->
+                <div id="tab-local" class="tab-content active">
                     <label>Archivo (Excel, CSV o PDF)</label>
                     <div class="file-input-wrapper">
                         <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.pdf">
@@ -349,9 +394,13 @@
                         </label>
                         <span class="file-name" id="fileName"></span>
                     </div>
+                    <button onclick="parseManifest()" id="parseBtn">Procesar Archivo</button>
                 </div>
 
-                <button onclick="parseManifest()" id="parseBtn">Procesar Archivo</button>
+                <!-- Google Drive Tab -->
+                <div id="tab-drive" class="tab-content">
+                    <button class="button-drive" onclick="openGoogleDrivePicker()">☁️ Seleccionar desde Google Drive</button>
+                </div>
 
                 <div id="parseStatus" class="status"></div>
             </div>
@@ -399,12 +448,125 @@
         </div>
     </div>
 
+    <script src="https://apis.google.com/js/api.js"></script>
     <script>
         const API_BASE = 'https://savvy-ebay-prices-production.up.railway.app';
+        const GOOGLE_CLIENT_ID = '429208907942-ej9rfddhfvs2pq59d9vj4ckriddj217u.apps.googleusercontent.com';
+        const GOOGLE_API_KEY = 'AIzaSyAqVnLlk5MxFeKEXKcJcYkwGx0hjYXz5Yk';
+
         let parsedData = [];
         let currentFile = null;
 
-        // Update file name display
+        function initGoogleAPI() {
+            gapi.load('picker', { callback: onPickerApiLoad });
+        }
+
+        function onPickerApiLoad() {
+            console.log('Google Picker API loaded');
+        }
+
+        function openGoogleDrivePicker() {
+            const truckNumber = document.getElementById('truckNumber').value.trim();
+            if (!truckNumber) {
+                document.getElementById('parseStatus').className = 'status error';
+                document.getElementById('parseStatus').textContent = '❌ Ingresa el número de camión primero';
+                return;
+            }
+
+            const picker = new google.picker.PickerBuilder()
+                .addView(google.picker.ViewId.DOCS)
+                .setOAuthToken(gapi.auth.getToken().access_token)
+                .setDeveloperKey(GOOGLE_API_KEY)
+                .setCallback(pickerCallback)
+                .build();
+            picker.setVisible(true);
+        }
+
+        function pickerCallback(data) {
+            if (data[google.picker.Response.ACTION] == google.picker.Action.PICKED) {
+                const file = data[google.picker.Response.DOCUMENTS][0];
+                handleGoogleDriveFile(file);
+            }
+        }
+
+        function handleGoogleDriveFile(file) {
+            const statusDiv = document.getElementById('parseStatus');
+            statusDiv.className = 'status info';
+            statusDiv.innerHTML = '<span class="spinner"></span>Descargando archivo de Google Drive...';
+            
+            const accessToken = gapi.auth.getToken().access_token;
+            fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            })
+            .then(response => response.blob())
+            .then(blob => {
+                const name = file.getName();
+                parseFileBlob(blob, name);
+            })
+            .catch(error => {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `❌ Error descargando archivo: ${error.message}`;
+            });
+        }
+
+        function parseFileBlob(blob, filename) {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const arrayBuffer = e.target.result;
+                
+                const formData = new FormData();
+                formData.append('file', new File([arrayBuffer], filename));
+
+                const statusDiv = document.getElementById('parseStatus');
+                statusDiv.className = 'status info';
+                statusDiv.innerHTML = '<span class="spinner"></span>Procesando archivo...';
+
+                try {
+                    const response = await fetch(`${API_BASE}/manifest/parse-manifest`, {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        parsedData = result.rows;
+                        currentFile = filename;
+                        
+                        statusDiv.className = 'status success';
+                        statusDiv.textContent = `✅ Archivo procesado: ${result.total_rows} filas detectadas`;
+                        
+                        displayPreview();
+                    } else {
+                        statusDiv.className = 'status error';
+                        statusDiv.textContent = `❌ Error: ${result.error || 'No se pudo procesar'}`;
+                    }
+                } catch (error) {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = `❌ Error de conexión: ${error.message}`;
+                }
+            };
+            reader.readAsArrayBuffer(blob);
+        }
+
+        function switchTab(tab) {
+            document.getElementById('tab-local').classList.remove('active');
+            document.getElementById('tab-drive').classList.remove('active');
+            
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById('tab-' + tab).classList.add('active');
+            
+            event.target.classList.add('active');
+
+            if (tab === 'drive') {
+                gapi.auth.signIn({
+                    client_id: GOOGLE_CLIENT_ID,
+                    scope: 'https://www.googleapis.com/auth/drive.readonly'
+                });
+            }
+        }
+
         document.getElementById('fileInput').addEventListener('change', (e) => {
             const fileName = e.target.files[0]?.name || '';
             document.getElementById('fileName').textContent = fileName ? `✓ ${fileName}` : '';
@@ -470,15 +632,12 @@
             const headerRow = document.getElementById('previewHeaderRow');
             const tbody = document.getElementById('previewBody');
 
-            // Get all unique column names
             const columns = Array.from(
                 new Set(parsedData.flatMap(row => Object.keys(row)))
             );
 
-            // Build header
             headerRow.innerHTML = columns.map(col => `<th>${col}</th>`).join('');
 
-            // Build body (show first 10 rows)
             tbody.innerHTML = parsedData.slice(0, 10).map(row => 
                 `<tr>${columns.map(col => `<td>${row[col] || ''}</td>`).join('')}</tr>`
             ).join('');
@@ -594,7 +753,6 @@
             parsedData = [];
         }
 
-        // Allow Enter key to trigger parse
         document.getElementById('fileInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') parseManifest();
         });
@@ -605,6 +763,16 @@
 
         document.getElementById('searchTruckNumber').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') searchManifests();
+        });
+
+        window.addEventListener('load', () => {
+            gapi.load('auth2', () => {
+                gapi.auth2.init({
+                    client_id: GOOGLE_CLIENT_ID,
+                    scope: 'https://www.googleapis.com/auth/drive.readonly'
+                });
+            });
+            initGoogleAPI();
         });
     </script>
 </body>
