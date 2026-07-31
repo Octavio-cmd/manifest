@@ -484,9 +484,9 @@
 
                     <div style="margin-bottom: 20px;">
                         <label>Escanear / Ingresar UPC o SKU:</label>
-                        <div style="display: flex; gap: 10px;">
-                            <input type="text" id="scanInput" placeholder="Ej: 123456789 o SKU-001" style="flex: 1;">
-                            <button onclick="addScannedProduct()" style="width: 120px;">Agregar</button>
+                        <div style="display: flex; gap: 10px; max-width: 100%;">
+                            <input type="text" id="scanInput" placeholder="Ej: 123456789 o SKU-001" style="flex: 1; min-width: 0;">
+                            <button onclick="addScannedProduct()" style="width: auto; min-width: 90px; white-space: nowrap; flex-shrink: 0;">Agregar</button>
                         </div>
                         <div id="scanStatus" class="status" style="display: none; margin-top: 10px;"></div>
                     </div>
