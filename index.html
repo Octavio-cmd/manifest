@@ -406,7 +406,8 @@
 
                 <!-- Google Drive Tab -->
                 <div id="tab-drive" class="tab-content">
-                    <button class="button-drive" onclick="authAndOpenPicker()">☁️ Seleccionar desde Google Drive</button>
+                    <button class="button-drive" onclick="openGoogleDrivePicker()">☁️ Seleccionar desde Google Drive</button>
+                    <div id="driveStatus" class="status" style="display: none;"></div>
                 </div>
 
                 <div id="parseStatus" class="status"></div>
@@ -463,52 +464,64 @@
 
         let parsedData = [];
         let currentFile = null;
-        let auth2Instance = null;
 
         function initGoogleAPI() {
-            gapi.load('auth2', () => {
-                auth2Instance = gapi.auth2.init({
-                    client_id: GOOGLE_CLIENT_ID,
-                    scope: 'https://www.googleapis.com/auth/drive.readonly'
-                });
-            });
             gapi.load('picker', { callback: onPickerApiLoad });
         }
 
         function onPickerApiLoad() {
-            console.log('Google Picker API loaded');
-        }
-
-        function authAndOpenPicker() {
-            const statusDiv = document.getElementById('parseStatus');
-            
-            if (!auth2Instance) {
-                statusDiv.className = 'status error';
-                statusDiv.textContent = '❌ Google API no está cargado. Intenta de nuevo.';
-                return;
-            }
-
-            const currentUser = auth2Instance.currentUser.get();
-            
-            if (!currentUser.isSignedIn()) {
-                auth2Instance.signIn().then(() => {
-                    openGoogleDrivePicker();
-                }).catch(err => {
-                    statusDiv.className = 'status error';
-                    statusDiv.textContent = '❌ Error de autenticación: ' + err.error;
-                });
-            } else {
-                openGoogleDrivePicker();
-            }
+            console.log('Google Picker API cargado');
         }
 
         function openGoogleDrivePicker() {
-            const currentUser = auth2Instance.currentUser.get();
-            const token = currentUser.getAuthResponse().access_token;
+            const driveStatus = document.getElementById('driveStatus');
+            
+            // Generar URL de autenticación de Google con implicit flow
+            const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+            authUrl.searchParams.set('client_id', GOOGLE_CLIENT_ID);
+            authUrl.searchParams.set('redirect_uri', window.location.origin + window.location.pathname);
+            authUrl.searchParams.set('response_type', 'token');
+            authUrl.searchParams.set('scope', 'https://www.googleapis.com/auth/drive.readonly');
+            authUrl.searchParams.set('state', 'manifest_picker');
+
+            // Guardar el estado en localStorage
+            localStorage.setItem('manifest_auth_state', 'true');
+
+            // Redirigir a Google
+            window.location.href = authUrl.toString();
+        }
+
+        function handleAuthResponse() {
+            // Extraer token de la URL
+            const hash = window.location.hash.substring(1);
+            if (!hash) return;
+
+            const params = new URLSearchParams(hash);
+            const token = params.get('access_token');
+
+            if (token) {
+                localStorage.setItem('google_access_token', token);
+                window.location.hash = '';
+                
+                // Ahora abrir el picker con el token
+                setTimeout(() => {
+                    showPicker(token);
+                }, 100);
+            }
+        }
+
+        function showPicker(accessToken) {
+            if (!window.google || !google.picker) {
+                const driveStatus = document.getElementById('driveStatus');
+                driveStatus.className = 'status error';
+                driveStatus.textContent = '❌ API de Google Picker no disponible';
+                driveStatus.style.display = 'block';
+                return;
+            }
 
             const picker = new google.picker.PickerBuilder()
                 .addView(google.picker.ViewId.DOCS)
-                .setOAuthToken(token)
+                .setOAuthToken(accessToken)
                 .setDeveloperKey(GOOGLE_API_KEY)
                 .setCallback(pickerCallback)
                 .build();
@@ -526,9 +539,14 @@
             const statusDiv = document.getElementById('parseStatus');
             statusDiv.className = 'status info';
             statusDiv.innerHTML = '<span class="spinner"></span>Descargando archivo de Google Drive...';
+            statusDiv.style.display = 'block';
             
-            const currentUser = auth2Instance.currentUser.get();
-            const accessToken = currentUser.getAuthResponse().access_token;
+            const accessToken = localStorage.getItem('google_access_token');
+            if (!accessToken) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ No hay token de acceso';
+                return;
+            }
             
             fetch(`https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`, {
                 headers: { 'Authorization': `Bearer ${accessToken}` }
@@ -787,6 +805,11 @@
         });
 
         window.addEventListener('load', () => {
+            // Verificar si volvemos de autenticación
+            if (localStorage.getItem('manifest_auth_state')) {
+                localStorage.removeItem('manifest_auth_state');
+                handleAuthResponse();
+            }
             initGoogleAPI();
         });
     </script>
