@@ -89,6 +89,13 @@
             color: #333;
         }
 
+        .optional-label {
+            font-size: 0.85em;
+            color: #999;
+            font-weight: normal;
+            margin-left: 8px;
+        }
+
         input[type="text"],
         input[type="file"],
         select {
@@ -374,9 +381,9 @@
                 <h2><span class="icon">📤</span> Subir Manifiesto</h2>
                 
                 <div class="form-group">
-                    <label>Número de Camión</label>
+                    <label>Número de Camión <span class="optional-label">(opcional)</span></label>
                     <input type="text" id="truckNumber" placeholder="Ej: A, B, C, 001" maxlength="50">
-                    <div class="truck-number-hint">Identificador único del camión/carga</div>
+                    <div class="truck-number-hint">Identificador único del camión/carga (puedes agregarlo después)</div>
                 </div>
 
                 <div class="tab-buttons">
@@ -410,7 +417,7 @@
                 <h2><span class="icon">🔍</span> Buscar Manifiesto</h2>
 
                 <div class="form-group">
-                    <label>Número de Camión</label>
+                    <label>Número de Camión <span class="optional-label">(opcional)</span></label>
                     <input type="text" id="searchTruckNumber" placeholder="Ej: A, B, C, 001" maxlength="50">
                 </div>
 
@@ -466,13 +473,6 @@
         }
 
         function openGoogleDrivePicker() {
-            const truckNumber = document.getElementById('truckNumber').value.trim();
-            if (!truckNumber) {
-                document.getElementById('parseStatus').className = 'status error';
-                document.getElementById('parseStatus').textContent = '❌ Ingresa el número de camión primero';
-                return;
-            }
-
             const picker = new google.picker.PickerBuilder()
                 .addView(google.picker.ViewId.DOCS)
                 .setOAuthToken(gapi.auth.getToken().access_token)
@@ -574,14 +574,7 @@
 
         async function parseManifest() {
             const fileInput = document.getElementById('fileInput');
-            const truckNumber = document.getElementById('truckNumber').value.trim();
             const statusDiv = document.getElementById('parseStatus');
-
-            if (!truckNumber) {
-                statusDiv.className = 'status error';
-                statusDiv.textContent = '❌ Ingresa el número de camión';
-                return;
-            }
 
             if (!fileInput.files[0]) {
                 statusDiv.className = 'status error';
@@ -649,12 +642,12 @@
         }
 
         async function createManifestSheet() {
-            const truckNumber = document.getElementById('truckNumber').value.trim().toUpperCase();
+            const truckNumber = document.getElementById('truckNumber').value.trim().toUpperCase() || 'NO_ESPECIFICADO';
             const statusDiv = document.getElementById('parseStatus');
 
-            if (!truckNumber || parsedData.length === 0) {
+            if (parsedData.length === 0) {
                 statusDiv.className = 'status error';
-                statusDiv.textContent = '❌ Faltan datos';
+                statusDiv.textContent = '❌ No hay datos para procesar';
                 return;
             }
 
@@ -698,7 +691,7 @@
 
             if (!truckNumber) {
                 statusDiv.className = 'status error';
-                statusDiv.textContent = '❌ Ingresa el número de camión';
+                statusDiv.textContent = '❌ Ingresa el número de camión para buscar';
                 return;
             }
 
