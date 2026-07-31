@@ -572,33 +572,27 @@
             statusDiv.className = 'status info';
             statusDiv.innerHTML = '<span class="spinner"></span>Leyendo Google Sheet...';
             
-            // Leer todos los datos de la hoja
-            fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.data&key=${GOOGLE_API_KEY}`)
+            // Usar endpoint values para leer todos los datos
+            fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?ranges=A:Z&key=${GOOGLE_API_KEY}`)
             .then(response => response.json())
             .then(data => {
-                if (!data.sheets || !data.sheets[0]) {
+                if (!data.valueRanges || data.valueRanges.length === 0) {
+                    throw new Error('La Google Sheet está vacía o no tiene acceso');
+                }
+                
+                const valueRange = data.valueRanges[0];
+                if (!valueRange.values || valueRange.values.length === 0) {
                     throw new Error('No se encontraron datos en la Google Sheet');
                 }
                 
-                const sheet = data.sheets[0];
-                const gridData = sheet.data ? sheet.data[0] : null;
-                
-                if (!gridData || !gridData.rowData) {
-                    throw new Error('La Google Sheet está vacía');
-                }
-                
-                // Convertir datos de Sheet a CSV
+                // Convertir a CSV
                 let csv = '';
-                gridData.rowData.forEach(row => {
-                    if (row.values) {
-                        const rowValues = row.values.map(cell => {
-                            const value = cell.userEnteredValue ? (cell.userEnteredValue.stringValue || cell.userEnteredValue.numberValue || '') : '';
-                            // Escapar comillas y envolver en comillas si contiene comas
-                            const stringValue = String(value).replace(/"/g, '""');
-                            return stringValue.includes(',') ? `"${stringValue}"` : stringValue;
-                        });
-                        csv += rowValues.join(',') + '\n';
-                    }
+                valueRange.values.forEach(row => {
+                    const rowValues = row.map(cell => {
+                        const stringValue = String(cell).replace(/"/g, '""');
+                        return stringValue.includes(',') ? `"${stringValue}"` : stringValue;
+                    });
+                    csv += rowValues.join(',') + '\n';
                 });
                 
                 // Convertir CSV string a Blob
