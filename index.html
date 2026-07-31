@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Savvy Scanner - Manifest Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .content {
+            padding: 40px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 8px;
+            border: 2px solid #e9ecef;
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .icon {
+            font-size: 1.3em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        input[type="text"],
+        input[type="file"],
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 6px;
+            font-size: 1em;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+
+        input[type="text"]:focus,
+        input[type="file"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-label {
+            display: block;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border-radius: 6px;
+            text-align: center;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        .file-input-label:hover {
+            background: #764ba2;
+        }
+
+        .file-name {
+            display: block;
+            margin-top: 8px;
+            font-size: 0.9em;
+            color: #667eea;
+            word-break: break-all;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: #764ba2;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .button-secondary {
+            background: #6c757d;
+            margin-top: 8px;
+        }
+
+        .button-secondary:hover {
+            background: #5a6268;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            display: none;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 0.9em;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .preview-table th {
+            background: #667eea;
+            color: white;
+            padding: 10px;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        .preview-table td {
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .preview-table tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .manifest-item {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .manifest-item-info {
+            flex: 1;
+        }
+
+        .manifest-item-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .manifest-item-date {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .manifest-item-link {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.9em;
+            transition: background 0.3s;
+        }
+
+        .manifest-item-link:hover {
+            background: #764ba2;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .truck-number-hint {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        .row-count {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 10px;
+            padding: 10px;
+            background: white;
+            border-radius: 4px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .action-buttons button {
+            flex: 1;
+            margin: 0;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📦 Manifest Manager</h1>
+            <p>Savvy Scanner - Gestión de Manifiestos</p>
+        </div>
+
+        <div class="content">
+            <!-- SECTION 1: UPLOAD & PARSE -->
+            <div class="section">
+                <h2><span class="icon">📤</span> Subir Manifiesto</h2>
+                
+                <div class="form-group">
+                    <label>Número de Camión</label>
+                    <input type="text" id="truckNumber" placeholder="Ej: A, B, C, 001" maxlength="50">
+                    <div class="truck-number-hint">Identificador único del camión/carga</div>
+                </div>
+
+                <div class="form-group">
+                    <label>Archivo (Excel, CSV o PDF)</label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.pdf">
+                        <label for="fileInput" class="file-input-label">
+                            📁 Seleccionar Archivo
+                        </label>
+                        <span class="file-name" id="fileName"></span>
+                    </div>
+                </div>
+
+                <button onclick="parseManifest()" id="parseBtn">Procesar Archivo</button>
+
+                <div id="parseStatus" class="status"></div>
+            </div>
+
+            <!-- SECTION 2: SEARCH & VIEW -->
+            <div class="section">
+                <h2><span class="icon">🔍</span> Buscar Manifiesto</h2>
+
+                <div class="form-group">
+                    <label>Número de Camión</label>
+                    <input type="text" id="searchTruckNumber" placeholder="Ej: A, B, C, 001" maxlength="50">
+                </div>
+
+                <button onclick="searchManifests()">Buscar</button>
+
+                <div id="searchStatus" class="status"></div>
+                <div id="manifestList"></div>
+            </div>
+
+            <!-- SECTION 3: PREVIEW -->
+            <div class="section full-width">
+                <h2><span class="icon">👁️</span> Vista Previa de Datos</h2>
+
+                <div id="previewContainer" style="display: none;">
+                    <div class="row-count" id="rowCount"></div>
+                    <div style="overflow-x: auto; max-height: 500px;">
+                        <table class="preview-table" id="previewTable">
+                            <thead>
+                                <tr id="previewHeaderRow"></tr>
+                            </thead>
+                            <tbody id="previewBody"></tbody>
+                        </table>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button onclick="createManifestSheet()">Crear Google Sheet</button>
+                        <button class="button-secondary" onclick="resetUpload()">Cancelar</button>
+                    </div>
+                </div>
+
+                <div id="noPreview" style="text-align: center; color: #999; padding: 30px;">
+                    Aquí aparecerá la vista previa cuando subas un archivo
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://savvy-ebay-prices-production.up.railway.app';
+        let parsedData = [];
+        let currentFile = null;
+
+        // Update file name display
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            const fileName = e.target.files[0]?.name || '';
+            document.getElementById('fileName').textContent = fileName ? `✓ ${fileName}` : '';
+        });
+
+        async function parseManifest() {
+            const fileInput = document.getElementById('fileInput');
+            const truckNumber = document.getElementById('truckNumber').value.trim();
+            const statusDiv = document.getElementById('parseStatus');
+
+            if (!truckNumber) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Ingresa el número de camión';
+                return;
+            }
+
+            if (!fileInput.files[0]) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Selecciona un archivo';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            statusDiv.className = 'status info';
+            statusDiv.innerHTML = '<span class="spinner"></span>Procesando archivo...';
+            document.getElementById('parseBtn').disabled = true;
+
+            try {
+                const response = await fetch(`${API_BASE}/manifest/parse-manifest`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    parsedData = result.rows;
+                    currentFile = fileInput.files[0].name;
+                    
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = `✅ Archivo procesado: ${result.total_rows} filas detectadas`;
+                    
+                    displayPreview();
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = `❌ Error: ${result.error || 'No se pudo procesar'}`;
+                }
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `❌ Error de conexión: ${error.message}`;
+            } finally {
+                document.getElementById('parseBtn').disabled = false;
+            }
+        }
+
+        function displayPreview() {
+            if (parsedData.length === 0) return;
+
+            const container = document.getElementById('previewContainer');
+            const rowCount = document.getElementById('rowCount');
+            const headerRow = document.getElementById('previewHeaderRow');
+            const tbody = document.getElementById('previewBody');
+
+            // Get all unique column names
+            const columns = Array.from(
+                new Set(parsedData.flatMap(row => Object.keys(row)))
+            );
+
+            // Build header
+            headerRow.innerHTML = columns.map(col => `<th>${col}</th>`).join('');
+
+            // Build body (show first 10 rows)
+            tbody.innerHTML = parsedData.slice(0, 10).map(row => 
+                `<tr>${columns.map(col => `<td>${row[col] || ''}</td>`).join('')}</tr>`
+            ).join('');
+
+            rowCount.textContent = `📊 Total: ${parsedData.length} filas${parsedData.length > 10 ? ' (primeras 10 mostradas)' : ''}`;
+            
+            document.getElementById('noPreview').style.display = 'none';
+            container.style.display = 'block';
+        }
+
+        async function createManifestSheet() {
+            const truckNumber = document.getElementById('truckNumber').value.trim().toUpperCase();
+            const statusDiv = document.getElementById('parseStatus');
+
+            if (!truckNumber || parsedData.length === 0) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Faltan datos';
+                return;
+            }
+
+            statusDiv.className = 'status info';
+            statusDiv.innerHTML = '<span class="spinner"></span>Creando Google Sheet...';
+
+            try {
+                const response = await fetch(`${API_BASE}/manifest/create-manifest-sheet`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        truck_number: truckNumber,
+                        rows: parsedData
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    statusDiv.className = 'status success';
+                    statusDiv.innerHTML = `✅ <strong>${result.sheet_name}</strong> creado exitosamente<br>
+                        <a href="${result.url}" target="_blank" style="color: inherit; text-decoration: underline;">
+                            📊 Abrir en Google Sheets
+                        </a>`;
+                    
+                    setTimeout(() => resetUpload(), 2000);
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = `❌ Error: ${result.error}`;
+                }
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `❌ Error: ${error.message}`;
+            }
+        }
+
+        async function searchManifests() {
+            const truckNumber = document.getElementById('searchTruckNumber').value.trim().toUpperCase();
+            const statusDiv = document.getElementById('searchStatus');
+            const listDiv = document.getElementById('manifestList');
+
+            if (!truckNumber) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Ingresa el número de camión';
+                return;
+            }
+
+            statusDiv.className = 'status info';
+            statusDiv.innerHTML = '<span class="spinner"></span>Buscando...';
+            listDiv.innerHTML = '';
+
+            try {
+                const response = await fetch(
+                    `${API_BASE}/manifest/search-manifests?truck_number=${encodeURIComponent(truckNumber)}`
+                );
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    if (result.manifests.length === 0) {
+                        statusDiv.className = 'status info';
+                        statusDiv.textContent = 'ℹ️ No se encontraron manifiestos para este camión';
+                    } else {
+                        statusDiv.className = 'status success';
+                        statusDiv.textContent = `✅ Se encontraron ${result.manifests.length} manifiesto(s)`;
+
+                        listDiv.innerHTML = result.manifests.map(manifest => `
+                            <div class="manifest-item">
+                                <div class="manifest-item-info">
+                                    <div class="manifest-item-name">${manifest.name}</div>
+                                    <div class="manifest-item-date">📅 ${new Date(manifest.created).toLocaleDateString('es-MX')}</div>
+                                </div>
+                                <a href="${manifest.url}" target="_blank" class="manifest-item-link">
+                                    Abrir →
+                                </a>
+                            </div>
+                        `).join('');
+                    }
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = `❌ Error: ${result.error}`;
+                }
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `❌ Error: ${error.message}`;
+            }
+        }
+
+        function resetUpload() {
+            document.getElementById('fileInput').value = '';
+            document.getElementById('fileName').textContent = '';
+            document.getElementById('truckNumber').value = '';
+            document.getElementById('parseStatus').className = 'status';
+            document.getElementById('previewContainer').style.display = 'none';
+            document.getElementById('noPreview').style.display = 'block';
+            parsedData = [];
+        }
+
+        // Allow Enter key to trigger parse
+        document.getElementById('fileInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') parseManifest();
+        });
+
+        document.getElementById('truckNumber').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') parseManifest();
+        });
+
+        document.getElementById('searchTruckNumber').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') searchManifests();
+        });
+    </script>
+</body>
+</html>
