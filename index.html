@@ -26,6 +26,15 @@
             border-radius: 12px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             overflow: hidden;
+            width: 100%;
+            padding: 0;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                margin: 0 10px;
+                border-radius: 8px;
+            }
         }
 
         .header {
@@ -346,7 +355,8 @@
         .tab-btn {
             flex: 1;
             padding: 10px;
-            background: #e9ecef;
+            background: #667eea;
+            color: white;
             border: 2px solid transparent;
             border-radius: 6px;
             cursor: pointer;
@@ -357,6 +367,7 @@
         .tab-btn.active {
             background: #667eea;
             color: white;
+            border-color: #764ba2;
         }
 
         .tab-content {
@@ -411,6 +422,38 @@
                 </div>
 
                 <div id="parseStatus" class="status"></div>
+            </div>
+
+            <!-- Nuevo Manifest Section -->
+            <div id="manifestCreator" style="display: none; margin-top: 30px;">
+                <div class="card">
+                    <h2>📋 Crear Nuevo Manifest</h2>
+                    <p style="color: #666; margin: 10px 0 20px;">Escanea productos y compáralos con el manifest cargado</p>
+
+                    <div style="margin-bottom: 20px;">
+                        <label>Escanear / Ingresar UPC o SKU:</label>
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="scanInput" placeholder="Ej: 123456789 o SKU-001" style="flex: 1;">
+                            <button onclick="addScannedProduct()" style="width: 120px;">Agregar</button>
+                        </div>
+                        <div id="scanStatus" class="status" style="display: none; margin-top: 10px;"></div>
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <label>Productos Escaneados:</label>
+                        <div id="scannedList" style="background: #f8f9fa; padding: 15px; border-radius: 6px; max-height: 300px; overflow-y: auto;">
+                            <p style="color: #999; text-align: center;">Ningún producto escaneado aún</p>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px;">
+                        <button onclick="compareManifests()" style="flex: 1; background: #667eea;">🔍 Comparar con Manifest</button>
+                        <button onclick="clearScannedProducts()" style="flex: 1; background: #dc3545;">🗑️ Limpiar</button>
+                    </div>
+                </div>
+
+                <!-- Comparison Results -->
+                <div id="comparisonResults" style="display: none; margin-top: 20px;"></div>
             </div>
 
             <!-- SECTION 2: SEARCH & VIEW -->
@@ -637,6 +680,7 @@
                         statusDiv.textContent = `✅ Archivo procesado: ${result.total_rows} filas detectadas`;
                         
                         displayPreview();
+                        document.getElementById('manifestCreator').style.display = 'block';
                     } else {
                         statusDiv.className = 'status error';
                         statusDiv.textContent = `❌ Error: ${result.error || 'No se pudo procesar'}`;
@@ -698,6 +742,7 @@
                     statusDiv.textContent = `✅ Archivo procesado: ${result.total_rows} filas detectadas`;
                     
                     displayPreview();
+                    document.getElementById('manifestCreator').style.display = 'block';
                 } else {
                     statusDiv.className = 'status error';
                     statusDiv.textContent = `❌ Error: ${result.error || 'No se pudo procesar'}`;
@@ -859,6 +904,126 @@
             }
             initGoogleAPI();
         });
+
+        // ===== FUNCIONES PARA CREAR NUEVO MANIFEST Y COMPARACIÓN =====
+        let scannedProducts = [];
+
+        function addScannedProduct() {
+            const input = document.getElementById('scanInput');
+            const value = input.value.trim();
+            const scanStatus = document.getElementById('scanStatus');
+
+            if (!value) {
+                scanStatus.className = 'status error';
+                scanStatus.textContent = '❌ Ingresa un UPC o SKU';
+                scanStatus.style.display = 'block';
+                return;
+            }
+
+            if (!parsedData || parsedData.length === 0) {
+                scanStatus.className = 'status error';
+                scanStatus.textContent = '❌ Primero carga un manifest';
+                scanStatus.style.display = 'block';
+                return;
+            }
+
+            // Buscar en el manifest cargado
+            const found = parsedData.find(row => 
+                (row.upc && row.upc.toString() === value) || 
+                (row.sku && row.sku.toString() === value)
+            );
+
+            scannedProducts.push({
+                code: value,
+                found: !!found,
+                details: found || null
+            });
+
+            input.value = '';
+            scanStatus.className = 'status success';
+            scanStatus.textContent = found ? '✅ Producto encontrado' : '⚠️ Producto NO encontrado en manifest';
+            scanStatus.style.display = 'block';
+
+            updateScannedList();
+
+            setTimeout(() => {
+                input.focus();
+            }, 100);
+        }
+
+        function updateScannedList() {
+            const list = document.getElementById('scannedList');
+            
+            if (scannedProducts.length === 0) {
+                list.innerHTML = '<p style="color: #999; text-align: center;">Ningún producto escaneado aún</p>';
+                return;
+            }
+
+            list.innerHTML = scannedProducts.map((product, idx) => `
+                <div style="padding: 10px; margin: 5px 0; background: ${product.found ? '#d4edda' : '#f8d7da'}; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+                    <span>
+                        ${product.found ? '✅' : '❌'} ${product.code}
+                        ${product.details ? ` - ${product.details.title || product.details.name || ''}` : ''}
+                    </span>
+                    <button onclick="removeScannedProduct(${idx})" style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 12px;">Quitar</button>
+                </div>
+            `).join('');
+        }
+
+        function removeScannedProduct(idx) {
+            scannedProducts.splice(idx, 1);
+            updateScannedList();
+        }
+
+        function clearScannedProducts() {
+            scannedProducts = [];
+            updateScannedList();
+            document.getElementById('comparisonResults').style.display = 'none';
+            document.getElementById('scanInput').value = '';
+            document.getElementById('scanInput').focus();
+        }
+
+        function compareManifests() {
+            if (scannedProducts.length === 0) {
+                alert('Escanea al menos un producto');
+                return;
+            }
+
+            const found = scannedProducts.filter(p => p.found).length;
+            const notFound = scannedProducts.filter(p => !p.found).length;
+            const inManifestNotScanned = parsedData.length - found;
+
+            const results = document.getElementById('comparisonResults');
+            results.innerHTML = `
+                <div class="card">
+                    <h3>📊 Resultados de Comparación</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0;">
+                        <div style="background: #d4edda; padding: 15px; border-radius: 6px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #155724;">${found}</div>
+                            <div style="color: #155724; font-size: 14px;">Productos Encontrados</div>
+                        </div>
+                        <div style="background: #f8d7da; padding: 15px; border-radius: 6px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #721c24;">${notFound}</div>
+                            <div style="color: #721c24; font-size: 14px;">NO Encontrados</div>
+                        </div>
+                        <div style="background: #fff3cd; padding: 15px; border-radius: 6px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #856404;">${inManifestNotScanned}</div>
+                            <div style="color: #856404; font-size: 14px;">En Manifest - No Escaneados</div>
+                        </div>
+                        <div style="background: #e2e3e5; padding: 15px; border-radius: 6px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: bold; color: #383d41;">${Math.round((found / scannedProducts.length) * 100)}%</div>
+                            <div style="color: #383d41; font-size: 14px;">Precisión</div>
+                        </div>
+                    </div>
+                    
+                    <h4 style="margin-top: 20px; margin-bottom: 10px;">Productos NO Encontrados:</h4>
+                    <div style="background: #f8f9fa; padding: 10px; border-radius: 4px; max-height: 150px; overflow-y: auto;">
+                        ${notFound > 0 ? scannedProducts.filter(p => !p.found).map(p => `<div style="padding: 5px; border-bottom: 1px solid #ddd;">❌ ${p.code}</div>`).join('') : '<p style="color: #999;">Todos los productos fueron encontrados ✅</p>'}
+                    </div>
+                </div>
+            `;
+            results.style.display = 'block';
+        }
     </script>
 </body>
 </html>
