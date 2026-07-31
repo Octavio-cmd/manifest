@@ -572,8 +572,12 @@
             statusDiv.className = 'status info';
             statusDiv.innerHTML = '<span class="spinner"></span>Leyendo Google Sheet...';
             
-            // Usar endpoint values para leer todos los datos
-            fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?ranges=A:Z&key=${GOOGLE_API_KEY}`)
+            // Usar access token para acceder a Google Sheets privadas
+            fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchGet?ranges=A:Z`, {
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`
+                }
+            })
             .then(response => response.json())
             .then(data => {
                 if (!data.valueRanges || data.valueRanges.length === 0) {
