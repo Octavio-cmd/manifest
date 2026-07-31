@@ -553,7 +553,7 @@
             })
             .then(response => response.blob())
             .then(blob => {
-                const name = file.getName();
+                const name = file.name;
                 parseFileBlob(blob, name);
             })
             .catch(error => {
