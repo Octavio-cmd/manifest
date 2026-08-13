@@ -576,12 +576,25 @@
                     <div style="display:flex;flex-wrap:wrap;gap:8px;">
                         <input type="text" id="capUpc" placeholder="36000494136" style="flex:1 1 140px;min-width:0;">
                     </div>
+
+                    <button type="button" id="capCamBtn" style="margin-top:8px;background:#764ba2;">
+                        📷 Escanear UPC
+                    </button>
+
+                    <div id="capCamBox" style="display:none;margin-top:10px;">
+                        <div id="capCamView" style="width:100%;border-radius:12px;overflow:hidden;background:#111;min-height:200px;"></div>
+                        <button type="button" id="capCamStop" style="margin-top:8px;background:#dc3545;">
+                            ✕ Cerrar cámara
+                        </button>
+                    </div>
+
                     <div class="file-input-wrapper" style="margin-top:8px;width:auto;display:inline-block;">
                         <input type="file" id="capScanImg" accept="image/*">
-                        <label for="capScanImg" class="file-input-label" style="background:#764ba2;">
-                            📷 Escanear código
+                        <label for="capScanImg" class="file-input-label" style="background:#6c757d;font-size:0.85em;padding:8px;">
+                            🖼️ Usar una foto del carrete
                         </label>
                     </div>
+
                     <div id="capScanStatus" class="status" style="display:none;margin-top:8px;"></div>
                 </div>
 
@@ -782,6 +795,7 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <script src="https://apis.google.com/js/api.js"></script>
     <script>
         const API_BASE = 'https://savvy-ebay-prices-production.up.railway.app';
@@ -1438,6 +1452,7 @@
                         '<a href="' + result.url + '" target="_blank" style="color:inherit;text-decoration:underline;">📊 Abrir la hoja</a>');
 
                     capRenderHistory(truck);
+                    capStopCam();
                     capClearProduct();
                 } else {
                     capShowStatus('error', '❌ ' + (result.error || 'No se pudo guardar'));
@@ -1462,18 +1477,89 @@
             capEl('capUpc').focus();
         }
 
+        // ===== ESCÁNER EN VIVO (misma arquitectura que Product Scanner) =====
+        var capScanner = null;
+
+        function capScanFormats() {
+            if (typeof Html5QrcodeSupportedFormats === 'undefined') return undefined;
+            return [
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.EAN_8,
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.UPC_E,
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.CODE_39,
+                Html5QrcodeSupportedFormats.QR_CODE,
+                Html5QrcodeSupportedFormats.DATA_MATRIX
+            ];
+        }
+
+        function capScanMsg(cls, txt) {
+            var st = capEl('capScanStatus');
+            st.className = 'status ' + cls;
+            st.textContent = txt;
+            st.style.display = 'block';
+        }
+
+        async function capStopCam() {
+            if (capScanner) {
+                try { await capScanner.stop(); } catch (e) { }
+                try { capScanner.clear(); } catch (e) { }
+                capScanner = null;
+            }
+            capEl('capCamBox').style.display = 'none';
+            capEl('capCamBtn').style.display = 'block';
+        }
+
+        async function capStartCam() {
+            if (typeof Html5Qrcode === 'undefined') {
+                capScanMsg('error', '❌ No cargó el lector. Revisa tu conexión y recarga.');
+                return;
+            }
+
+            await capStopCam();
+
+            capEl('capCamBox').style.display = 'block';
+            capEl('capCamBtn').style.display = 'none';
+            capScanMsg('info', '📷 Alinea el código de barras dentro del recuadro');
+
+            try {
+                capScanner = new Html5Qrcode('capCamView', {
+                    formatsToSupport: capScanFormats(),
+                    experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+                    verbose: false
+                });
+
+                await capScanner.start(
+                    { facingMode: 'environment' },
+                    {
+                        fps: 20,
+                        qrbox: { width: 280, height: 120 },
+                        aspectRatio: 1.7,
+                        disableFlip: false
+                    },
+                    function (decoded) {
+                        capEl('capUpc').value = decoded;
+                        capScanMsg('success', '✅ ' + decoded);
+                        capStopCam();
+                        if (navigator.vibrate) navigator.vibrate(120);
+                    },
+                    function () { }
+                );
+            } catch (e) {
+                capScanMsg('error', '❌ No se pudo abrir la cámara: ' + e.message);
+                capStopCam();
+            }
+        }
+
         async function capScanBarcode(event) {
             var file = event.target.files[0];
-            var st = capEl('capScanStatus');
             if (!file) return;
 
-            st.className = 'status info';
-            st.innerHTML = '<span class="spinner"></span>Leyendo código...';
-            st.style.display = 'block';
+            capScanMsg('info', 'Leyendo la foto...');
 
             if (!('BarcodeDetector' in window)) {
-                st.className = 'status error';
-                st.textContent = '❌ Este navegador no lee códigos. Escribe el UPC a mano.';
+                capScanMsg('error', '❌ Este navegador no lee fotos. Usa la cámara en vivo.');
                 event.target.value = '';
                 return;
             }
@@ -1486,16 +1572,13 @@
                 var codes = await detector.detect(bitmap);
 
                 if (codes.length === 0) {
-                    st.className = 'status error';
-                    st.textContent = '❌ No se detectó código. Intenta con mejor luz.';
+                    capScanMsg('error', '❌ No se detectó código. Intenta con mejor luz.');
                 } else {
                     capEl('capUpc').value = codes[0].rawValue;
-                    st.className = 'status success';
-                    st.textContent = '✅ ' + codes[0].rawValue;
+                    capScanMsg('success', '✅ ' + codes[0].rawValue);
                 }
             } catch (err) {
-                st.className = 'status error';
-                st.textContent = '❌ Error: ' + err.message;
+                capScanMsg('error', '❌ Error: ' + err.message);
             }
             event.target.value = '';
         }
@@ -1526,6 +1609,10 @@
             }
 
             capBind('capScanImg', 'change', capScanBarcode);
+            capBind('capCamBtn', 'click', capStartCam);
+            capBind('capCamBtn', 'touchend', capStartCam);
+            capBind('capCamStop', 'click', capStopCam);
+            capBind('capCamStop', 'touchend', capStopCam);
 
             capBind('capHeight', 'change', function () {
                 var h = this.value;
