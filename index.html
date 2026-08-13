@@ -494,6 +494,132 @@
                 <div id="parseStatus" class="status"></div>
             </div>
 
+            <!-- SECTION CAPTURA: PRODUCTO -> HOJA -->
+            <div class="section full-width">
+                <h2><span class="icon">📥</span> Capturar Producto</h2>
+
+                <div style="background:#eef1ff;padding:12px;border-radius:6px;margin-bottom:18px;">
+                    <label>Camión <span style="color:#dc3545;">*</span></label>
+                    <input type="text" id="capTruck" placeholder="Ej: A-123" maxlength="50">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+                        <div>
+                            <label>Sent by</label>
+                            <input type="text" id="capSentBy" placeholder="Priscilla">
+                        </div>
+                        <div>
+                            <label>FOB</label>
+                            <input type="text" id="capFob" placeholder="NC">
+                        </div>
+                    </div>
+                    <div style="margin-top:10px;">
+                        <label>Fuente para SKU</label>
+                        <input type="text" id="capStore" placeholder="DRUG-STORE">
+                    </div>
+                    <div style="font-size:12px;color:#666;margin-top:8px;">
+                        Estos 4 datos se recuerdan para todo el camión.
+                    </div>
+                </div>
+
+                <div style="margin-bottom:14px;">
+                    <label>UPC</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                        <input type="text" id="capUpc" placeholder="36000494136" style="flex:1 1 140px;min-width:0;">
+                    </div>
+                    <div class="file-input-wrapper" style="margin-top:8px;width:auto;display:inline-block;">
+                        <input type="file" id="capScanImg" accept="image/*">
+                        <label for="capScanImg" class="file-input-label" style="background:#764ba2;">
+                            📷 Escanear código
+                        </label>
+                    </div>
+                    <div id="capScanStatus" class="status" style="display:none;margin-top:8px;"></div>
+                </div>
+
+                <div style="margin-bottom:14px;">
+                    <label>Item <span style="color:#dc3545;">*</span></label>
+                    <input type="text" id="capItem" placeholder="VIVA Multi-Surface Cloth 4/6 ROLL PACKS">
+                </div>
+
+                <div style="margin-bottom:14px;">
+                    <label>SKU</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                        <input type="text" id="capSku" placeholder="TRLR_DRUG-STORE_20260813-1" style="flex:1 1 160px;min-width:0;">
+                        <button type="button" id="capSkuBtn" style="flex:0 0 auto;white-space:nowrap;background:#6c757d;">Generar</button>
+                    </div>
+                </div>
+
+                <div style="background:#fff8e6;padding:12px;border-radius:6px;margin-bottom:14px;">
+                    <label style="font-weight:700;">Conteo de la paleta</label>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;">
+                        <div>
+                            <label style="font-size:12px;">Piezas/Caja</label>
+                            <input type="number" id="capPcsCase" placeholder="4" min="0" step="1">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;">Cajas/Paleta</label>
+                            <input type="number" id="capCasesPlt" placeholder="10" min="0" step="1">
+                        </div>
+                        <div>
+                            <label style="font-size:12px;">Paletas</label>
+                            <input type="number" id="capPallets" placeholder="11" min="0" step="1">
+                        </div>
+                    </div>
+                    <div style="margin-top:10px;">
+                        <label style="font-size:12px;">Retail por pieza (opcional)</label>
+                        <input type="number" id="capRetailUnit" placeholder="15.49" min="0" step="0.01">
+                    </div>
+                    <div style="margin-top:10px;">
+                        <label style="font-size:12px;">Descripción del pack (para Notes)</label>
+                        <input type="text" id="capPackDesc" placeholder="4/6 Roll Pack">
+                    </div>
+                    <div id="capCalc" style="margin-top:12px;padding:10px;background:#fff;border-radius:4px;font-size:14px;color:#555;">
+                        Llena el conteo para ver los cálculos
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+                    <div>
+                        <label>Retail (paleta)</label>
+                        <input type="number" id="capRetail" placeholder="619.60" min="0" step="0.01">
+                    </div>
+                    <div>
+                        <label>Sell Price</label>
+                        <input type="number" id="capSellPrice" placeholder="309.80" min="0" step="0.01">
+                    </div>
+                    <div>
+                        <label>Cost</label>
+                        <input type="number" id="capCost" placeholder="94.49" min="0" step="0.01">
+                    </div>
+                    <div>
+                        <label>LBS</label>
+                        <input type="text" id="capLbs" placeholder="850">
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+                    <div>
+                        <label>Dims</label>
+                        <input type="text" id="capDims" placeholder="40x48x46">
+                    </div>
+                    <div>
+                        <label>Photos / Link</label>
+                        <input type="text" id="capPhotos" placeholder="(próximamente automático)">
+                    </div>
+                </div>
+
+                <div style="margin-bottom:14px;">
+                    <label>Notes</label>
+                    <input type="text" id="capNotes" placeholder="10 Cases/PLT (4/6 Roll Pack)">
+                </div>
+
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <button type="button" id="capSaveBtn" style="flex:1 1 160px;">💾 Guardar en la Hoja</button>
+                    <button type="button" id="capClearBtn" style="flex:0 1 120px;background:#6c757d;">Limpiar</button>
+                </div>
+
+                <div id="capStatus" class="status" style="display:none;margin-top:12px;"></div>
+                <div id="capHistory" style="margin-top:14px;"></div>
+            </div>
+
             <!-- Nuevo Manifest Section -->
             <div id="manifestCreator" style="display: none; margin-top: 30px;">
                 <div class="card">
@@ -872,7 +998,7 @@
             statusDiv.innerHTML = '<span class="spinner"></span>Creando Google Sheet...';
 
             try {
-                const response = await fetch(`${API_BASE}/manifest/create-manifest-sheet`, {
+                const response = await fetch(`${API_BASE}/manifest/save-original`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -983,6 +1109,244 @@
             }
             initGoogleAPI();
         });
+
+        // ===== CAPTURA DE PRODUCTO -> HOJA DWI MANIFESTS =====
+        var CAP_MEMORY = ['capTruck', 'capSentBy', 'capFob', 'capStore'];
+        var capSavedCount = 0;
+
+        function capEl(id) { return document.getElementById(id); }
+        function capVal(id) { var e = capEl(id); return e ? e.value.trim() : ''; }
+        function capNum(id) { var v = parseFloat(capVal(id)); return isNaN(v) ? 0 : v; }
+
+        function capLoadMemory() {
+            for (var i = 0; i < CAP_MEMORY.length; i++) {
+                var k = CAP_MEMORY[i];
+                var saved = localStorage.getItem('mf_' + k);
+                if (saved && capEl(k)) capEl(k).value = saved;
+            }
+        }
+
+        function capSaveMemory() {
+            for (var i = 0; i < CAP_MEMORY.length; i++) {
+                var k = CAP_MEMORY[i];
+                if (capEl(k)) localStorage.setItem('mf_' + k, capEl(k).value.trim());
+            }
+        }
+
+        function capGenerateSku() {
+            var store = capVal('capStore').toUpperCase().replace(/\s+/g, '-') || 'LOT';
+            var d = new Date();
+            var stamp = '' + d.getFullYear() +
+                ('0' + (d.getMonth() + 1)).slice(-2) +
+                ('0' + d.getDate()).slice(-2);
+            var seqKey = 'mf_seq_' + store + '_' + stamp;
+            var seq = parseInt(localStorage.getItem(seqKey) || '0', 10) + 1;
+            localStorage.setItem(seqKey, seq);
+            capEl('capSku').value = 'TRLR_' + store + '_' + stamp + '-' + seq;
+        }
+
+        function capRecalc() {
+            var pcs = capNum('capPcsCase');
+            var cases = capNum('capCasesPlt');
+            var plts = capNum('capPallets');
+            var unitRetail = capNum('capRetailUnit');
+            var packDesc = capVal('capPackDesc');
+
+            var perPallet = pcs * cases;
+            var totalPieces = perPallet * plts;
+
+            var lines = [];
+            if (perPallet > 0) lines.push('<b>' + perPallet + '</b> piezas por paleta');
+            if (totalPieces > 0) lines.push('<b>' + totalPieces + '</b> piezas totales');
+
+            if (unitRetail > 0 && perPallet > 0 && !capEl('capRetail').dataset.touched) {
+                var retailPallet = Math.round(unitRetail * perPallet * 100) / 100;
+                capEl('capRetail').value = retailPallet.toFixed(2);
+                lines.push('Retail paleta: <b>$' + retailPallet.toFixed(2) + '</b>');
+            }
+
+            var retail = capNum('capRetail');
+            if (retail > 0 && !capEl('capSellPrice').dataset.touched) {
+                capEl('capSellPrice').value = (Math.round(retail * 50) / 100).toFixed(2);
+            }
+
+            var sell = capNum('capSellPrice');
+            if (sell > 0 && plts > 0) {
+                lines.push('Total: <b>$' + (Math.round(sell * plts * 100) / 100).toFixed(2) + '</b>');
+            }
+
+            if (cases > 0 && !capEl('capNotes').dataset.touched) {
+                capEl('capNotes').value = cases + ' Cases/PLT' +
+                    (packDesc ? ' (' + packDesc + ')' : '');
+            }
+
+            capEl('capCalc').innerHTML = lines.length
+                ? lines.join(' &nbsp;·&nbsp; ')
+                : 'Llena el conteo para ver los cálculos';
+        }
+
+        function capBuildRow() {
+            var pcs = capNum('capPcsCase');
+            var cases = capNum('capCasesPlt');
+            var plts = capNum('capPallets');
+            var totalPieces = pcs * cases * plts;
+
+            return {
+                upc: capVal('capUpc'),
+                item: capVal('capItem'),
+                sku: capVal('capSku'),
+                sent_by: capVal('capSentBy'),
+                fob: capVal('capFob'),
+                cost: capNum('capCost') || '',
+                retail: capNum('capRetail') || '',
+                sell_price: capNum('capSellPrice') || '',
+                pallets: plts || '',
+                photos_link: capVal('capPhotos'),
+                dims: capVal('capDims'),
+                lbs: capVal('capLbs'),
+                quantity: plts > 0 ? (plts + ' PLTS') : '',
+                notes: capVal('capNotes'),
+                pcs_case: pcs || '',
+                cases_plt: cases || '',
+                total_pieces: totalPieces || ''
+            };
+        }
+
+        function capShowStatus(cls, html) {
+            var s = capEl('capStatus');
+            s.className = 'status ' + cls;
+            s.innerHTML = html;
+            s.style.display = 'block';
+        }
+
+        async function capSaveRow() {
+            var truck = capVal('capTruck').toUpperCase();
+            if (!truck) {
+                capShowStatus('error', '❌ Falta el número de camión');
+                return;
+            }
+            if (!capVal('capItem')) {
+                capShowStatus('error', '❌ Falta el nombre del producto (Item)');
+                return;
+            }
+
+            capSaveMemory();
+            capEl('capSaveBtn').disabled = true;
+            capShowStatus('info', '<span class="spinner"></span>Guardando en la hoja...');
+
+            try {
+                var response = await fetch(API_BASE + '/manifest/add-row', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ truck_number: truck, row: capBuildRow() })
+                });
+
+                var result = await response.json();
+
+                if (response.ok && result.success) {
+                    capSavedCount++;
+                    capShowStatus('success',
+                        '✅ Guardado en fila ' + result.row_number +
+                        ' de la pestaña <b>' + result.truck_number + '</b><br>' +
+                        '<a href="' + result.url + '" target="_blank" style="color:inherit;text-decoration:underline;">📊 Abrir la hoja</a>');
+
+                    capEl('capHistory').innerHTML =
+                        '<div style="background:#d4edda;padding:10px;border-radius:4px;font-size:14px;">' +
+                        '✅ ' + capSavedCount + ' producto(s) guardado(s) en este camión</div>';
+
+                    capClearProduct();
+                } else {
+                    capShowStatus('error', '❌ ' + (result.error || 'No se pudo guardar'));
+                }
+            } catch (error) {
+                capShowStatus('error', '❌ Error de conexión: ' + error.message);
+            } finally {
+                capEl('capSaveBtn').disabled = false;
+            }
+        }
+
+        function capClearProduct() {
+            var fields = ['capUpc', 'capItem', 'capSku', 'capPcsCase', 'capCasesPlt',
+                'capPallets', 'capRetailUnit', 'capPackDesc', 'capRetail',
+                'capSellPrice', 'capCost', 'capLbs', 'capDims', 'capPhotos', 'capNotes'];
+            for (var i = 0; i < fields.length; i++) {
+                var e = capEl(fields[i]);
+                if (e) { e.value = ''; delete e.dataset.touched; }
+            }
+            capEl('capCalc').innerHTML = 'Llena el conteo para ver los cálculos';
+            capEl('capUpc').focus();
+        }
+
+        async function capScanBarcode(event) {
+            var file = event.target.files[0];
+            var st = capEl('capScanStatus');
+            if (!file) return;
+
+            st.className = 'status info';
+            st.innerHTML = '<span class="spinner"></span>Leyendo código...';
+            st.style.display = 'block';
+
+            if (!('BarcodeDetector' in window)) {
+                st.className = 'status error';
+                st.textContent = '❌ Este navegador no lee códigos. Escribe el UPC a mano.';
+                event.target.value = '';
+                return;
+            }
+
+            try {
+                var bitmap = await createImageBitmap(file);
+                var detector = new BarcodeDetector({
+                    formats: ['upc_a', 'upc_e', 'ean_13', 'ean_8', 'code_128', 'code_39']
+                });
+                var codes = await detector.detect(bitmap);
+
+                if (codes.length === 0) {
+                    st.className = 'status error';
+                    st.textContent = '❌ No se detectó código. Intenta con mejor luz.';
+                } else {
+                    capEl('capUpc').value = codes[0].rawValue;
+                    st.className = 'status success';
+                    st.textContent = '✅ ' + codes[0].rawValue;
+                }
+            } catch (err) {
+                st.className = 'status error';
+                st.textContent = '❌ Error: ' + err.message;
+            }
+            event.target.value = '';
+        }
+
+        function capBind(id, evt, fn) {
+            var e = capEl(id);
+            if (e) e.addEventListener(evt, fn);
+        }
+
+        (function capInit() {
+            capLoadMemory();
+
+            var calcFields = ['capPcsCase', 'capCasesPlt', 'capPallets',
+                'capRetailUnit', 'capPackDesc'];
+            for (var i = 0; i < calcFields.length; i++) {
+                capBind(calcFields[i], 'input', capRecalc);
+            }
+
+            capBind('capRetail', 'input', function () {
+                this.dataset.touched = '1';
+                capRecalc();
+            });
+            capBind('capSellPrice', 'input', function () { this.dataset.touched = '1'; });
+            capBind('capNotes', 'input', function () { this.dataset.touched = '1'; });
+
+            for (var j = 0; j < CAP_MEMORY.length; j++) {
+                capBind(CAP_MEMORY[j], 'change', capSaveMemory);
+            }
+
+            capBind('capScanImg', 'change', capScanBarcode);
+
+            capBind('capSkuBtn', 'click', capGenerateSku);
+            capBind('capSkuBtn', 'touchend', capGenerateSku);
+            capBind('capSaveBtn', 'click', capSaveRow);
+            capBind('capClearBtn', 'click', capClearProduct);
+        })();
 
         // ===== FUNCIONES PARA CREAR NUEVO MANIFEST Y COMPARACIÓN =====
         let scannedProducts = [];
