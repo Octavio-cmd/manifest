@@ -661,7 +661,7 @@
                 </div>
 
                 <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                    <button type="button" id="capSaveBtn" style="flex:1 1 160px;">💾 Guardar en la Hoja</button>
+                    <button type="button" id="capSaveBtn" style="flex:1 1 160px;">💾 Guardar y Siguiente</button>
                     <button type="button" id="capClearBtn" style="flex:0 1 120px;background:#6c757d;">Limpiar</button>
                 </div>
 
@@ -1216,7 +1216,7 @@
 
         // ===== CAPTURA DE PRODUCTO -> HOJA DWI MANIFESTS =====
         var CAP_MEMORY = ['capTruck', 'capSentBy', 'capFob', 'capStore'];
-        var capSavedCount = 0;
+        var capSavedRows = [];
 
         function capEl(id) { return document.getElementById(id); }
         function capVal(id) { var e = capEl(id); return e ? e.value.trim() : ''; }
@@ -1289,6 +1289,53 @@
                 : 'Llena el conteo para ver los cálculos';
         }
 
+        function capPersistHistory(truck) {
+            try {
+                localStorage.setItem('mf_hist_' + truck, JSON.stringify(capSavedRows));
+            } catch (e) { }
+        }
+
+        function capLoadHistory(truck) {
+            capSavedRows = [];
+            if (!truck) return;
+            try {
+                var raw = localStorage.getItem('mf_hist_' + truck);
+                if (raw) capSavedRows = JSON.parse(raw) || [];
+            } catch (e) { capSavedRows = []; }
+        }
+
+        function capRenderHistory(truck) {
+            var box = capEl('capHistory');
+            if (!truck) { box.innerHTML = ''; return; }
+
+            if (capSavedRows.length === 0) {
+                box.innerHTML =
+                    '<div style="background:#eef1ff;padding:12px;border-radius:6px;font-size:14px;color:#555;">' +
+                    'Camión activo: <b>' + truck + '</b> — todavía sin productos. ' +
+                    'Cada producto que guardes se agrega como una fila nueva en esta misma pestaña.' +
+                    '</div>';
+                return;
+            }
+
+            var items = '';
+            var start = Math.max(0, capSavedRows.length - 8);
+            for (var i = capSavedRows.length - 1; i >= start; i--) {
+                var r = capSavedRows[i];
+                items += '<div style="padding:6px 0;border-bottom:1px solid #e3e6f5;">' +
+                    '<b>Fila ' + r.row + '</b> — ' +
+                    (r.item || '(sin nombre)') +
+                    (r.upc ? ' <span style="color:#888;">· ' + r.upc + '</span>' : '') +
+                    '</div>';
+            }
+
+            box.innerHTML =
+                '<div style="background:#d4edda;padding:12px;border-radius:6px;font-size:14px;">' +
+                '<div style="margin-bottom:8px;">✅ <b>' + capSavedRows.length +
+                '</b> producto(s) en el camión <b>' + truck + '</b>' +
+                (capSavedRows.length > 8 ? ' <span style="color:#666;">(últimos 8)</span>' : '') +
+                '</div>' + items + '</div>';
+        }
+
         function capBuildRow() {
             var pcs = capNum('capPcsCase');
             var cases = capNum('capCasesPlt');
@@ -1300,7 +1347,7 @@
                 item: capVal('capItem'),
                 sku: capVal('capSku'),
                 sent_by: capVal('capSentBy'),
-                fob: capVal('capFob'),
+                fob: capVal('capFob').toUpperCase(),
                 cost: capNum('capCost') || '',
                 retail: capNum('capRetail') || '',
                 sell_price: capNum('capSellPrice') || '',
@@ -1348,16 +1395,20 @@
                 var result = await response.json();
 
                 if (response.ok && result.success) {
-                    capSavedCount++;
+                    capSavedRows.push({
+                        row: result.row_number,
+                        item: capVal('capItem'),
+                        upc: capVal('capUpc')
+                    });
+                    capPersistHistory(truck);
+
                     capShowStatus('success',
-                        '✅ Guardado en fila ' + result.row_number +
-                        ' de la pestaña <b>' + result.truck_number + '</b><br>' +
+                        '✅ Fila ' + result.row_number + ' guardada en <b>' +
+                        result.truck_number + '</b> &nbsp;·&nbsp; el siguiente producto va a la fila ' +
+                        (result.row_number + 1) + '<br>' +
                         '<a href="' + result.url + '" target="_blank" style="color:inherit;text-decoration:underline;">📊 Abrir la hoja</a>');
 
-                    capEl('capHistory').innerHTML =
-                        '<div style="background:#d4edda;padding:10px;border-radius:4px;font-size:14px;">' +
-                        '✅ ' + capSavedCount + ' producto(s) guardado(s) en este camión</div>';
-
+                    capRenderHistory(truck);
                     capClearProduct();
                 } else {
                     capShowStatus('error', '❌ ' + (result.error || 'No se pudo guardar'));
@@ -1450,6 +1501,16 @@
             capBind('capSkuBtn', 'touchend', capGenerateSku);
             capBind('capSaveBtn', 'click', capSaveRow);
             capBind('capClearBtn', 'click', capClearProduct);
+
+            capBind('capTruck', 'change', function () {
+                var t = capVal('capTruck').toUpperCase();
+                capLoadHistory(t);
+                capRenderHistory(t);
+            });
+
+            var startTruck = capVal('capTruck').toUpperCase();
+            capLoadHistory(startTruck);
+            capRenderHistory(startTruck);
         })();
 
         // ===== FUNCIONES PARA CREAR NUEVO MANIFEST Y COMPARACIÓN =====
