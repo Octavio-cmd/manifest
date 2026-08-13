@@ -196,6 +196,7 @@
         }
 
         input[type="text"],
+        input[type="number"],
         input[type="file"],
         select {
             width: 100%;
@@ -210,6 +211,7 @@
         }
 
         input[type="text"]:focus,
+        input[type="number"]:focus,
         input[type="file"]:focus,
         select:focus {
             outline: none;
@@ -646,8 +648,35 @@
 
                 <div class="cap-grid-2" style="margin-bottom:14px;">
                     <div>
-                        <label>Dims</label>
-                        <input type="text" id="capDims" placeholder="40x48x46">
+                        <label>Dims (paleta)</label>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                            <span id="capDimsBase" style="font-weight:700;color:#444;white-space:nowrap;">40x48x</span>
+                            <select id="capHeight" style="flex:1 1 auto;">
+                                <option value="">Altura…</option>
+                                <option value="36">36"</option>
+                                <option value="40">40"</option>
+                                <option value="42">42"</option>
+                                <option value="44">44"</option>
+                                <option value="46">46"</option>
+                                <option value="48">48"</option>
+                                <option value="50">50"</option>
+                                <option value="52">52"</option>
+                                <option value="54">54"</option>
+                                <option value="56">56"</option>
+                                <option value="58">58"</option>
+                                <option value="60">60"</option>
+                                <option value="62">62"</option>
+                                <option value="64">64"</option>
+                                <option value="66">66"</option>
+                                <option value="68">68"</option>
+                                <option value="70">70"</option>
+                                <option value="72">72"</option>
+                                <option value="80">80"</option>
+                                <option value="84">84"</option>
+                                <option value="OTRA">Otra medida…</option>
+                            </select>
+                        </div>
+                        <input type="text" id="capDims" placeholder="40x48x46" style="margin-top:8px;">
                     </div>
                     <div>
                         <label>Photos / Link</label>
@@ -1423,7 +1452,8 @@
         function capClearProduct() {
             var fields = ['capUpc', 'capItem', 'capSku', 'capPcsCase', 'capCasesPlt',
                 'capPallets', 'capRetailUnit', 'capPackDesc', 'capRetail',
-                'capSellPrice', 'capCost', 'capLbs', 'capDims', 'capPhotos', 'capNotes'];
+                'capSellPrice', 'capCost', 'capLbs', 'capDims', 'capPhotos',
+                'capNotes', 'capHeight'];
             for (var i = 0; i < fields.length; i++) {
                 var e = capEl(fields[i]);
                 if (e) { e.value = ''; delete e.dataset.touched; }
@@ -1496,6 +1526,16 @@
             }
 
             capBind('capScanImg', 'change', capScanBarcode);
+
+            capBind('capHeight', 'change', function () {
+                var h = this.value;
+                if (h === 'OTRA') {
+                    capEl('capDims').value = '';
+                    capEl('capDims').focus();
+                } else if (h) {
+                    capEl('capDims').value = '40x48x' + h;
+                }
+            });
 
             capBind('capSkuBtn', 'click', capGenerateSku);
             capBind('capSkuBtn', 'touchend', capGenerateSku);
