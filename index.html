@@ -21,6 +21,55 @@
             box-sizing: border-box;
         }
 
+        /* ===================================================
+           FIX DEFINITIVO DEL DESBORDAMIENTO HORIZONTAL
+           En Grid y Flexbox los hijos tienen min-width:auto,
+           asi que una columna 1fr NUNCA se encoge por debajo
+           del ancho natural de su contenido (inputs, tablas,
+           textos largos). La columna crece, empuja el layout
+           y la pagina se desborda a la derecha.
+           overflow-x:hidden solo tapa el sintoma: esto corrige
+           la causa.
+           =================================================== */
+        .content > *,
+        .section,
+        .card,
+        .section > *,
+        .card > *,
+        .tab-content > *,
+        [style*="grid-template-columns"] > *,
+        [style*="display:grid"] > *,
+        [style*="display: grid"] > *,
+        [style*="display:flex"] > *,
+        [style*="display: flex"] > * {
+            min-width: 0;
+        }
+
+        input,
+        select,
+        textarea {
+            min-width: 0 !important;
+            max-width: 100%;
+        }
+
+        /* Rejillas de captura: se acomodan solas en pantalla angosta */
+        .cap-grid-2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 10px;
+        }
+
+        .cap-grid-3 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(95px, 1fr));
+            gap: 8px;
+        }
+
+        .cap-grid-2 > *,
+        .cap-grid-3 > * {
+            min-width: 0;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -501,7 +550,7 @@
                 <div style="background:#eef1ff;padding:12px;border-radius:6px;margin-bottom:18px;">
                     <label>Camión <span style="color:#dc3545;">*</span></label>
                     <input type="text" id="capTruck" placeholder="Ej: A-123" maxlength="50">
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+                    <div class="cap-grid-2" style="margin-top:10px;">
                         <div>
                             <label>Sent by</label>
                             <input type="text" id="capSentBy" placeholder="Priscilla">
@@ -549,7 +598,7 @@
 
                 <div style="background:#fff8e6;padding:12px;border-radius:6px;margin-bottom:14px;">
                     <label style="font-weight:700;">Conteo de la paleta</label>
-                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px;">
+                    <div class="cap-grid-3" style="margin-top:8px;">
                         <div>
                             <label style="font-size:12px;">Piezas/Caja</label>
                             <input type="number" id="capPcsCase" placeholder="4" min="0" step="1">
@@ -576,7 +625,7 @@
                     </div>
                 </div>
 
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+                <div class="cap-grid-2" style="margin-bottom:14px;">
                     <div>
                         <label>Retail (paleta)</label>
                         <input type="number" id="capRetail" placeholder="619.60" min="0" step="0.01">
@@ -595,7 +644,7 @@
                     </div>
                 </div>
 
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+                <div class="cap-grid-2" style="margin-bottom:14px;">
                     <div>
                         <label>Dims</label>
                         <input type="text" id="capDims" placeholder="40x48x46">
@@ -1110,6 +1159,61 @@
             initGoogleAPI();
         });
 
+        // ===== DETECTOR DE DESBORDAMIENTO (toca el título 5 veces) =====
+        (function overflowDebug() {
+            var taps = 0, timer = null;
+
+            function report() {
+                var limit = document.documentElement.clientWidth;
+                var pageWidth = Math.max(
+                    document.documentElement.scrollWidth,
+                    document.body.scrollWidth
+                );
+
+                var offenders = [];
+                var all = document.body.getElementsByTagName('*');
+                for (var i = 0; i < all.length; i++) {
+                    var el = all[i];
+                    var r = el.getBoundingClientRect();
+                    if (r.width === 0 && r.height === 0) continue;
+                    if (r.right > limit + 1 || r.width > limit + 1) {
+                        var tag = el.tagName.toLowerCase();
+                        var id = el.id ? '#' + el.id : '';
+                        var cls = (typeof el.className === 'string' && el.className)
+                            ? '.' + el.className.split(/\s+/).join('.') : '';
+                        offenders.push(tag + id + cls +
+                            ' → ancho ' + Math.round(r.width) +
+                            'px, borde derecho ' + Math.round(r.right) + 'px');
+                    }
+                }
+
+                var msg = 'Pantalla: ' + limit + 'px\n' +
+                    'Página: ' + pageWidth + 'px\n' +
+                    (pageWidth > limit
+                        ? '❌ SE DESBORDA por ' + (pageWidth - limit) + 'px\n\n'
+                        : '✅ SIN DESBORDAMIENTO\n\n');
+
+                if (offenders.length) {
+                    msg += 'Culpables (' + offenders.length + '):\n\n' +
+                        offenders.slice(0, 12).join('\n\n');
+                } else {
+                    msg += 'Ningún elemento se sale.';
+                }
+
+                alert(msg);
+            }
+
+            var header = document.querySelector('.header');
+            if (!header) return;
+
+            header.addEventListener('click', function () {
+                taps++;
+                clearTimeout(timer);
+                timer = setTimeout(function () { taps = 0; }, 2500);
+                if (taps >= 5) { taps = 0; report(); }
+            });
+        })();
+
         // ===== CAPTURA DE PRODUCTO -> HOJA DWI MANIFESTS =====
         var CAP_MEMORY = ['capTruck', 'capSentBy', 'capFob', 'capStore'];
         var capSavedCount = 0;
@@ -1483,7 +1587,7 @@
             results.innerHTML = `
                 <div class="card">
                     <h3>📊 Resultados de Comparación</h3>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0;">
+                    <div class="cap-grid-2" style="margin: 20px 0;">
                         <div style="background: #d4edda; padding: 15px; border-radius: 6px; text-align: center;">
                             <div style="font-size: 24px; font-weight: bold; color: #155724;">${found}</div>
                             <div style="color: #155724; font-size: 14px;">Productos Encontrados</div>
