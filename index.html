@@ -723,6 +723,22 @@
                             <input type="text" id="scanInput" placeholder="Ej: 123456789 o SKU-001" style="flex: 1 1 140px; min-width: 0;">
                             <button onclick="addScannedProduct()" style="flex: 0 0 auto; white-space: nowrap;">Agregar</button>
                         </div>
+
+                        <button type="button" id="scanCamBtn" style="margin-top: 10px; background: #764ba2;">
+                            📷 Escanear con cámara en vivo
+                        </button>
+
+                        <div id="scanCamBox" style="display: none; margin-top: 10px;">
+                            <div id="scanCamView" style="width: 100%; border-radius: 12px; overflow: hidden; background: #111; min-height: 220px;"></div>
+                            <p style="font-size: 0.85em; color: #666; margin-top: 8px; text-align: center;">
+                                Centra el código de barras dentro del recuadro
+                            </p>
+                            <button type="button" id="scanCamStop" style="margin-top: 8px; background: #dc3545;">
+                                ✕ Cerrar cámara
+                            </button>
+                        </div>
+
+                        <div id="scanCamStatus" class="status" style="display: none; margin-top: 10px;"></div>
                         
                         <div class="file-input-wrapper" style="margin-top: 10px; width: auto; display: inline-block;">
                             <input type="file" id="scanImageInput" accept="image/*" onchange="handleScanImage(event)">
@@ -1479,6 +1495,7 @@
 
         // ===== ESCÁNER EN VIVO (misma arquitectura que Product Scanner) =====
         var capScanner = null;
+        var capCamBusy = false;   // candado: evita arranques solapados de la cámara
 
         function capScanFormats() {
             if (typeof Html5QrcodeSupportedFormats === 'undefined') return undefined;
@@ -1492,6 +1509,35 @@
                 Html5QrcodeSupportedFormats.QR_CODE,
                 Html5QrcodeSupportedFormats.DATA_MATRIX
             ];
+        }
+
+        // Recuadro de lectura compartido por los dos lectores en vivo.
+        // html5-qrcode invoca esta función con el tamaño real del visor, así que
+        // el recuadro nunca puede quedar más grande que el video: un qrbox fijo
+        // rompe start() en iPhones angostos (un alto mayor que el visor lanza
+        // excepción; un ancho mayor se recorta con warning).
+        function scanQrbox(viewfinderWidth, viewfinderHeight) {
+            var w = Math.floor(viewfinderWidth * 0.9);
+            if (w > 320) w = 320;                       // de sobra para un UPC
+            if (w < 50) w = 50;                         // mínimo que exige la librería
+
+            var h = Math.floor(w * 0.45);               // franja horizontal para códigos 1D
+            var maxH = Math.floor(viewfinderHeight * 0.6);
+            if (h > maxH) h = maxH;
+            if (h < 50) h = 50;
+
+            // Último recorte: nunca exceder las dimensiones físicas del visor.
+            if (w > viewfinderWidth) w = viewfinderWidth;
+            if (h > viewfinderHeight) h = viewfinderHeight;
+
+            return { width: w, height: h };
+        }
+
+        // html5-qrcode a veces lanza strings en vez de Error, así que e.message
+        // quedaba en "undefined" y el operador no veía la causa real.
+        function capErrText(e) {
+            if (!e) return 'error desconocido';
+            return e.message ? e.message : String(e);
         }
 
         function capScanMsg(cls, txt) {
@@ -1512,18 +1558,21 @@
         }
 
         async function capStartCam() {
-            if (typeof Html5Qrcode === 'undefined') {
-                capScanMsg('error', '❌ No cargó el lector. Revisa tu conexión y recarga.');
-                return;
-            }
-
-            await capStopCam();
-
-            capEl('capCamBox').style.display = 'block';
-            capEl('capCamBtn').style.display = 'none';
-            capScanMsg('info', '📷 Alinea el código de barras dentro del recuadro');
+            if (capCamBusy) return;   // un toque en iOS dispara touchend y luego click
+            capCamBusy = true;
 
             try {
+                if (typeof Html5Qrcode === 'undefined') {
+                    capScanMsg('error', '❌ No cargó el lector. Revisa tu conexión y recarga.');
+                    return;
+                }
+
+                await capStopCam();
+
+                capEl('capCamBox').style.display = 'block';
+                capEl('capCamBtn').style.display = 'none';
+                capScanMsg('info', '📷 Alinea el código de barras dentro del recuadro');
+
                 capScanner = new Html5Qrcode('capCamView', {
                     formatsToSupport: capScanFormats(),
                     experimentalFeatures: { useBarCodeDetectorIfSupported: true },
@@ -1533,9 +1582,8 @@
                 await capScanner.start(
                     { facingMode: 'environment' },
                     {
-                        fps: 20,
-                        qrbox: { width: 280, height: 120 },
-                        aspectRatio: 1.7,
+                        fps: 10,
+                        qrbox: scanQrbox,
                         disableFlip: false
                     },
                     function (decoded) {
@@ -1547,8 +1595,10 @@
                     function () { }
                 );
             } catch (e) {
-                capScanMsg('error', '❌ No se pudo abrir la cámara: ' + e.message);
-                capStopCam();
+                capScanMsg('error', '❌ No se pudo abrir la cámara: ' + capErrText(e));
+                await capStopCam();
+            } finally {
+                capCamBusy = false;
             }
         }
 
@@ -1609,10 +1659,11 @@
             }
 
             capBind('capScanImg', 'change', capScanBarcode);
+            // Solo 'click': enlazar además 'touchend' hacía que un toque en iOS
+            // ejecutara la función dos veces y la segunda abortara la cámara
+            // que la primera todavía estaba abriendo.
             capBind('capCamBtn', 'click', capStartCam);
-            capBind('capCamBtn', 'touchend', capStartCam);
             capBind('capCamStop', 'click', capStopCam);
-            capBind('capCamStop', 'touchend', capStopCam);
 
             capBind('capHeight', 'change', function () {
                 var h = this.value;
@@ -1642,6 +1693,107 @@
 
         // ===== FUNCIONES PARA CREAR NUEVO MANIFEST Y COMPARACIÓN =====
         let scannedProducts = [];
+
+        // ===== LECTOR DE CÓDIGOS DE BARRAS EN VIVO (ALMACÉN) =====
+        // Usa html5-qrcode, ya cargado en la página. No sustituye a los respaldos
+        // de foto/archivo ni a la entrada manual: se suma a ellos.
+        var whScanner = null;
+        var whCamBusy = false;    // candado: evita arranques solapados
+        var whDetected = false;   // un solo código por sesión de cámara
+
+        // Solo códigos de producto: UPC-A, UPC-E, EAN-8, EAN-13 y Code 128.
+        function whScanFormats() {
+            if (typeof Html5QrcodeSupportedFormats === 'undefined') return undefined;
+            return [
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.UPC_E,
+                Html5QrcodeSupportedFormats.EAN_8,
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.CODE_128
+            ];
+        }
+
+        function whScanMsg(cls, txt) {
+            var st = document.getElementById('scanCamStatus');
+            if (!st) return;
+            st.className = 'status ' + cls;
+            st.textContent = txt;
+            st.style.display = 'block';
+        }
+
+        async function whStopCam() {
+            if (whScanner) {
+                try { await whScanner.stop(); } catch (e) { }
+                try { whScanner.clear(); } catch (e) { }
+                whScanner = null;
+            }
+            document.getElementById('scanCamBox').style.display = 'none';
+            document.getElementById('scanCamBtn').style.display = 'block';
+        }
+
+        async function whStartCam() {
+            if (whCamBusy) return;   // un toque en iOS dispara touchend y luego click
+            whCamBusy = true;
+
+            try {
+                if (typeof Html5Qrcode === 'undefined') {
+                    whScanMsg('error', '❌ No cargó el lector. Revisa tu conexión y recarga la página.');
+                    return;
+                }
+
+                await whStopCam();
+                whDetected = false;
+
+                document.getElementById('scanCamBox').style.display = 'block';
+                document.getElementById('scanCamBtn').style.display = 'none';
+                whScanMsg('info', '📷 Alinea el código de barras dentro del recuadro');
+
+                whScanner = new Html5Qrcode('scanCamView', {
+                    formatsToSupport: whScanFormats(),
+                    experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+                    verbose: false
+                });
+
+                await whScanner.start(
+                    { facingMode: 'environment' },
+                    {
+                        fps: 10,
+                        qrbox: scanQrbox,
+                        disableFlip: false
+                    },
+                    whOnScanSuccess,
+                    function () { }
+                );
+            } catch (e) {
+                whScanMsg('error', '❌ No se pudo abrir la cámara: ' + capErrText(e) +
+                    '. Usa la foto del carrete o escribe el código a mano.');
+                await whStopCam();
+            } finally {
+                whCamBusy = false;
+            }
+        }
+
+        // Al detectar: cierra la cámara, llena el campo y sigue el flujo existente.
+        function whOnScanSuccess(decoded) {
+            if (whDetected) return;
+            var code = (decoded || '').trim();
+            if (!code) return;
+            whDetected = true;
+
+            whStopCam();
+            document.getElementById('scanInput').value = code;
+            whScanMsg('success', '✅ Código detectado: ' + code);
+            if (navigator.vibrate) navigator.vibrate(120);
+
+            addScannedProduct();
+        }
+
+        (function whInit() {
+            var btn = document.getElementById('scanCamBtn');
+            var stopBtn = document.getElementById('scanCamStop');
+            if (btn) btn.addEventListener('click', whStartCam);
+            if (stopBtn) stopBtn.addEventListener('click', whStopCam);
+        })();
 
         async function handleScanImage(event) {
             const file = event.target.files[0];
