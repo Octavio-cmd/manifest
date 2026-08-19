@@ -36,7 +36,6 @@
         .card,
         .section > *,
         .card > *,
-        .tab-content > *,
         [style*="grid-template-columns"] > *,
         [style*="display:grid"] > *,
         [style*="display: grid"] > *,
@@ -459,46 +458,121 @@
             grid-column: 1 / -1;
         }
 
-        .tab-buttons {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 20px;
-            box-sizing: border-box;
+        /* ===== MENU UNICO DE SUBIDA DE MANIFIESTO ===== */
+        .upload-menu-wrap {
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        .upload-menu-btn {
             width: 100%;
-            max-width: 100%;
+            margin-top: 0;
+            padding: 16px 18px;
+            font-size: 1.05em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
         }
 
-        .tab-btn {
-            flex: 1 1 0;
-            min-width: 0;
-            padding: 10px 6px;
-            background: #667eea;
-            color: white;
-            border: 2px solid transparent;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s;
-            box-sizing: border-box;
-            white-space: normal;
-            word-break: break-word;
-            font-size: 0.95em;
-            opacity: 0.65;
+        .upload-caret {
+            display: inline-block;
+            font-size: 0.9em;
+            transition: transform 0.25s;
         }
 
-        .tab-btn.active {
-            background: #667eea;
-            color: white;
-            border-color: #764ba2;
-            opacity: 1;
+        .upload-menu-btn.open .upload-caret {
+            transform: rotate(180deg);
         }
 
-        .tab-content {
+        /* Capa que cierra el menu al tocar fuera. Un elemento real es mas
+           fiable en Safari/iOS que escuchar clicks sueltos en document. */
+        .upload-backdrop {
             display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.25);
+            z-index: 998;
         }
 
-        .tab-content.active {
+        .upload-backdrop.open {
             display: block;
+        }
+
+        .upload-menu {
+            display: none;
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+            z-index: 999;
+        }
+
+        .upload-menu.open {
+            display: block;
+        }
+
+        .upload-menu-item {
+            width: 100%;
+            min-height: 60px;
+            margin: 0;
+            padding: 14px 16px;
+            background: white;
+            color: #333;
+            border: none;
+            border-radius: 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-align: left;
+        }
+
+        .upload-menu-item + .upload-menu-item {
+            border-top: 1px solid #e9ecef;
+        }
+
+        .upload-menu-item:hover,
+        .upload-menu-item:active {
+            background: #f0f2ff;
+        }
+
+        .upload-menu-icon {
+            flex: 0 0 auto;
+            font-size: 1.5em;
+        }
+
+        .upload-menu-text {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .upload-menu-text small {
+            margin-top: 2px;
+            font-weight: 400;
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        /* El input real sigue en el DOM para que fileInput.click() funcione. */
+        input[type="file"].upload-file-input {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            margin: -1px;
+            padding: 0;
+            border: 0;
+            opacity: 0;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
         }
     </style>
 </head>
@@ -520,29 +594,38 @@
                     <div class="truck-number-hint">Identificador único del camión/carga (puedes agregarlo después)</div>
                 </div>
 
-                <div class="tab-buttons">
-                    <button class="tab-btn active" onclick="switchTab('local')">📁 Archivo Local</button>
-                    <button class="tab-btn" onclick="switchTab('drive')">☁️ Google Drive</button>
-                </div>
+                <div class="upload-menu-wrap">
+                    <button type="button" id="uploadMenuBtn" class="upload-menu-btn"
+                            aria-haspopup="true" aria-expanded="false">
+                        📤 Subir Manifiesto <span class="upload-caret" aria-hidden="true">▾</span>
+                    </button>
 
-                <!-- Local File Tab -->
-                <div id="tab-local" class="tab-content active">
-                    <label>Archivo (Excel, CSV o PDF)</label>
-                    <div class="file-input-wrapper">
-                        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.pdf">
-                        <label for="fileInput" class="file-input-label">
-                            📁 Seleccionar Archivo
-                        </label>
-                        <span class="file-name" id="fileName"></span>
+                    <div id="uploadMenuBackdrop" class="upload-backdrop"></div>
+
+                    <div id="uploadMenu" class="upload-menu" role="menu" aria-labelledby="uploadMenuBtn">
+                        <button type="button" class="upload-menu-item" id="uploadFromDevice" role="menuitem">
+                            <span class="upload-menu-icon" aria-hidden="true">📁</span>
+                            <span class="upload-menu-text">
+                                <strong>Desde este dispositivo</strong>
+                                <small>Excel, CSV o PDF</small>
+                            </span>
+                        </button>
+                        <button type="button" class="upload-menu-item" id="uploadFromDrive" role="menuitem">
+                            <span class="upload-menu-icon" aria-hidden="true">☁️</span>
+                            <span class="upload-menu-text">
+                                <strong>Desde Google Drive</strong>
+                                <small>Elegir un archivo de tu Drive</small>
+                            </span>
+                        </button>
                     </div>
-                    <button onclick="parseManifest()" id="parseBtn">Procesar Archivo</button>
                 </div>
 
-                <!-- Google Drive Tab -->
-                <div id="tab-drive" class="tab-content">
-                    <button class="button-drive" onclick="openGoogleDrivePicker()">☁️ Seleccionar desde Google Drive</button>
-                    <div id="driveStatus" class="status" style="display: none;"></div>
-                </div>
+                <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.pdf" class="upload-file-input">
+                <span class="file-name" id="fileName"></span>
+
+                <button onclick="parseManifest()" id="parseBtn">Procesar Archivo</button>
+
+                <div id="driveStatus" class="status" style="display: none;"></div>
 
                 <div id="parseStatus" class="status"></div>
             </div>
@@ -1008,16 +1091,50 @@
             reader.readAsArrayBuffer(blob);
         }
 
-        function switchTab(tab) {
-            document.getElementById('tab-local').classList.remove('active');
-            document.getElementById('tab-drive').classList.remove('active');
-            
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            
-            document.getElementById('tab-' + tab).classList.add('active');
-            
-            event.target.classList.add('active');
+        // ===== MENU UNICO DE SUBIDA DE MANIFIESTO =====
+        // Solo presentacion: delega en el input y en el flujo de Drive existentes.
+        function uploadMenuSet(abierto) {
+            document.getElementById('uploadMenu').classList.toggle('open', abierto);
+            document.getElementById('uploadMenuBackdrop').classList.toggle('open', abierto);
+            var btn = document.getElementById('uploadMenuBtn');
+            btn.classList.toggle('open', abierto);
+            btn.setAttribute('aria-expanded', abierto ? 'true' : 'false');
         }
+
+        function uploadMenuClose() {
+            uploadMenuSet(false);
+        }
+
+        function uploadMenuToggle() {
+            uploadMenuSet(!document.getElementById('uploadMenu').classList.contains('open'));
+        }
+
+        (function uploadMenuInit() {
+            var btn = document.getElementById('uploadMenuBtn');
+            var backdrop = document.getElementById('uploadMenuBackdrop');
+            var desdeDispositivo = document.getElementById('uploadFromDevice');
+            var desdeDrive = document.getElementById('uploadFromDrive');
+
+            // Solo 'click': basta en iOS y evita el doble disparo de touchend+click.
+            if (btn) btn.addEventListener('click', uploadMenuToggle);
+            if (backdrop) backdrop.addEventListener('click', uploadMenuClose);
+
+            if (desdeDispositivo) desdeDispositivo.addEventListener('click', function () {
+                uploadMenuClose();
+                // Sincrono dentro del gesto del usuario: Safari exige que
+                // fileInput.click() ocurra en la misma tarea que el toque.
+                document.getElementById('fileInput').click();
+            });
+
+            if (desdeDrive) desdeDrive.addEventListener('click', function () {
+                uploadMenuClose();
+                openGoogleDrivePicker();
+            });
+
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') uploadMenuClose();
+            });
+        })();
 
         document.getElementById('fileInput').addEventListener('change', (e) => {
             const fileName = e.target.files[0]?.name || '';
