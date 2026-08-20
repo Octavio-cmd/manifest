@@ -647,12 +647,8 @@
                             <input type="text" id="capFob" placeholder="NC">
                         </div>
                     </div>
-                    <div style="margin-top:10px;">
-                        <label>Fuente para SKU</label>
-                        <input type="text" id="capStore" placeholder="DRUG-STORE">
-                    </div>
                     <div style="font-size:12px;color:#666;margin-top:8px;">
-                        Estos 4 datos se recuerdan para todo el camión.
+                        Estos 3 datos se recuerdan para todo el camión.
                     </div>
                 </div>
 
@@ -1393,7 +1389,7 @@
         })();
 
         // ===== CAPTURA DE PRODUCTO -> HOJA DWI MANIFESTS =====
-        var CAP_MEMORY = ['capTruck', 'capSentBy', 'capFob', 'capStore'];
+        var CAP_MEMORY = ['capTruck', 'capSentBy', 'capFob'];
         var capSavedRows = [];
 
         function capEl(id) { return document.getElementById(id); }
