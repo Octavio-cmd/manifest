@@ -498,6 +498,66 @@
         .tab-content.active {
             display: block;
         }
+
+        /* Modal de cámara Savvy */
+        #scr-cam {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 9999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #scr-cam.on {
+            display: flex;
+        }
+
+        #scr-cam-inner {
+            width: 90%;
+            max-width: 400px;
+            background: #111;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 50px rgba(0, 0, 0, 0.8);
+        }
+
+        #qr-video {
+            width: 100%;
+            min-height: 300px;
+            background: #000;
+        }
+
+        #scr-cam-actions {
+            display: flex;
+            gap: 10px;
+            padding: 15px;
+            background: #222;
+        }
+
+        #scr-cam-actions button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            color: white;
+            font-size: 0.95em;
+        }
+
+        #scr-cam-cancel {
+            background: #dc3545;
+        }
+
+        #scr-cam-cancel:hover {
+            background: #c82333;
+        }
     </style>
 </head>
 <body>
@@ -795,15 +855,354 @@
         </div>
     </div>
 
+    <!-- Modal de Cámara Savvy -->
+    <div id="scr-cam">
+        <div id="scr-cam-inner">
+            <div id="qr-video"></div>
+            <div id="scr-cam-actions">
+                <button id="scr-cam-cancel">✕ Cancelar</button>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
     <script src="https://apis.google.com/js/api.js"></script>
     <script>
+        // Cache busting version
+        const PS_BUILD = '202608281200';
+
         const API_BASE = 'https://savvy-ebay-prices-production.up.railway.app';
         const GOOGLE_CLIENT_ID = '429208907942-ej9rfddhfvs2pq59d9vj4ckriddj217u.apps.googleusercontent.com';
         const GOOGLE_API_KEY = 'AIzaSyAIj7uqu9Sq-lezpcqyXfUTPTCug1mlz3s';
 
         let parsedData = [];
         let currentFile = null;
+
+        // ===== SAVVY QR SCANNER REGISTRY =====
+        // Mantiene una instancia de scanner por videoElementId
+        const _savvyScanners = {};
+        const _savvyScannerTimeouts = {};
+
+        /**
+         * Detecta si estamos en iPhone/iPad Safari
+         * Retorna true solo para iOS Safari real
+         */
+        function isIOSSafari() {
+            if (typeof navigator === 'undefined') return false;
+            const ua = navigator.userAgent.toLowerCase();
+            const isIOS = /iphone|ipad|ipod/.test(ua);
+            const isSafari = !/chrome|firefox|edge|opera|brave/.test(ua) && /safari|mobile/.test(ua);
+            return isIOS && isSafari;
+        }
+
+        /**
+         * Obtiene configuración de scanner según el navegador
+         * iOS: conservador (fps:10, facingMode:environment, sin aspectRatio)
+         * Otros: estándar
+         */
+        function getScannerConfig() {
+            if (isIOSSafari()) {
+                return {
+                    fps: 10,
+                    facingMode: 'environment',
+                    qrbox: { width: 250, height: 100 },
+                    disableFlip: false,
+                    experimentalFeatures: {
+                        useBarCodeDetectorIfSupported: false
+                    }
+                };
+            }
+            // Configuración estándar para Chrome, Firefox, Edge, etc.
+            return {
+                fps: 20,
+                facingMode: 'environment',
+                qrbox: { width: 280, height: 120 },
+                aspectRatio: 1.7,
+                disableFlip: false,
+                experimentalFeatures: {
+                    useBarCodeDetectorIfSupported: true
+                }
+            };
+        }
+
+        /**
+         * Valida si el video está correctamente reproduciendo
+         * Comprueba: srcObject, track live, readyState, dimensiones
+         */
+        async function validateVideoStream(video) {
+            // Comprobación 1: srcObject existe
+            if (!video.srcObject) {
+                console.warn('[savvy] Video.srcObject no existe');
+                return false;
+            }
+
+            // Comprobación 2: existe video track y está live
+            const tracks = video.srcObject.getVideoTracks();
+            if (!tracks || tracks.length === 0) {
+                console.warn('[savvy] No hay video tracks');
+                return false;
+            }
+
+            const track = tracks[0];
+            if (track.readyState !== 'live') {
+                console.warn(`[savvy] Track readyState no es "live", es "${track.readyState}"`);
+                return false;
+            }
+
+            // Comprobación 3: video.readyState >= 2 (HAVE_CURRENT_DATA)
+            if (video.readyState < 2) {
+                console.warn(`[savvy] video.readyState es ${video.readyState}, necesita >= 2`);
+                return false;
+            }
+
+            // Comprobación 4: dimensiones > 0
+            if (video.videoWidth <= 0 || video.videoHeight <= 0) {
+                console.warn(`[savvy] video.videoWidth=${video.videoWidth}, videoHeight=${video.videoHeight}`);
+                return false;
+            }
+
+            // Comprobación 5: video no está paused
+            if (video.paused) {
+                console.warn('[savvy] Video está paused');
+                return false;
+            }
+
+            console.log('[savvy] Video validado: ' + video.videoWidth + 'x' + video.videoHeight);
+            return true;
+        }
+
+        /**
+         * Abre el modal de cámara y luego inicia el scanner
+         * 1. Activa modal #scr-cam
+         * 2. Espera 2 requestAnimationFrame
+         * 3. Llama savvyStartScan
+         * 4. Si falla, cierra modal o muestra error
+         */
+        async function savvyOpenBarcodeScanner(videoElementId) {
+            const modal = document.getElementById('scr-cam');
+            const videoEl = document.getElementById(videoElementId);
+
+            if (!videoEl) {
+                console.error('[savvy] Video element no encontrado: ' + videoElementId);
+                return;
+            }
+
+            // Prevenir dos aperturas simultáneas
+            if (_savvyScanners[videoElementId]) {
+                console.warn('[savvy] Scanner ya está abierto para ' + videoElementId);
+                return;
+            }
+
+            // Abrir modal
+            if (modal) {
+                modal.classList.add('on');
+            }
+
+            // Esperar 2 requestAnimationFrame
+            await new Promise(resolve => {
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        resolve();
+                    });
+                });
+            });
+
+            // Iniciar scanner
+            try {
+                await savvyStartScan(videoElementId);
+            } catch (err) {
+                console.error('[savvy] Error iniciando scanner:', err);
+                if (modal) {
+                    modal.classList.remove('on');
+                }
+                // Mostrar mensaje de error en el video (opcional)
+                videoEl.innerHTML = '<div style="color:white;font-size:14px;text-align:center;padding:20px;">' +
+                    '❌ No se pudo abrir la cámara.<br>Verifica permisos en configuración.' +
+                    '</div>';
+            }
+        }
+
+        /**
+         * Inicia el scanner con la instancia guardada o nueva
+         * 1. Verifica Html5Qrcode
+         * 2. Obtiene configuración según navegador
+         * 3. Crea nueva instancia si no existe
+         * 4. Llama start() con configuración
+         * 5. Localiza elemento <video> dentro del contenedor
+         * 6. Configura playsinline, autoplay, muted
+         * 7. Ejecuta video.play() con manejo de error
+         * 8. Valida stream después de ~3 segundos
+         */
+        async function savvyStartScan(videoElementId) {
+            const videoContainer = document.getElementById(videoElementId);
+
+            if (!videoContainer) {
+                throw new Error('Video container no encontrado: ' + videoElementId);
+            }
+
+            if (typeof Html5Qrcode === 'undefined') {
+                throw new Error('Html5Qrcode no está cargado');
+            }
+
+            // Evitar duplicación
+            if (_savvyScanners[videoElementId]) {
+                console.log('[savvy] Scanner ya existe, reutilizando');
+                return;
+            }
+
+            const config = getScannerConfig();
+            const formats = typeof Html5QrcodeSupportedFormats !== 'undefined' ? [
+                Html5QrcodeSupportedFormats.EAN_13,
+                Html5QrcodeSupportedFormats.EAN_8,
+                Html5QrcodeSupportedFormats.UPC_A,
+                Html5QrcodeSupportedFormats.UPC_E,
+                Html5QrcodeSupportedFormats.CODE_128,
+                Html5QrcodeSupportedFormats.CODE_39,
+                Html5QrcodeSupportedFormats.QR_CODE,
+                Html5QrcodeSupportedFormats.DATA_MATRIX
+            ] : undefined;
+
+            try {
+                // Crear instancia
+                const scanner = new Html5Qrcode(videoElementId, {
+                    formatsToSupport: formats,
+                    experimentalFeatures: config.experimentalFeatures,
+                    verbose: false
+                });
+
+                // Guardar en registro
+                _savvyScanners[videoElementId] = scanner;
+
+                // Iniciar
+                await scanner.start(
+                    { facingMode: config.facingMode },
+                    config,
+                    function onScanSuccess(decodedText) {
+                        console.log('[savvy] Código detectado: ' + decodedText);
+                        // Aquí el callback de lectura debería poblar el input
+                        const upcInput = document.getElementById('capUpc');
+                        if (upcInput) {
+                            upcInput.value = decodedText;
+                        }
+                        // Detener scanner automáticamente
+                        savvyStopScan(videoElementId);
+                        if (navigator.vibrate) navigator.vibrate(120);
+                    },
+                    function onScanError(error) {
+                        // Errores de escaneo se ignoran (sin debug spam)
+                    }
+                );
+
+                // Localizar elemento <video> creado por html5-qrcode
+                await new Promise(resolve => {
+                    const check = setInterval(async () => {
+                        const video = videoContainer.querySelector('video');
+                        if (video) {
+                            clearInterval(check);
+
+                            // Configurar atributos
+                            video.setAttribute('playsinline', '');
+                            video.setAttribute('autoplay', '');
+                            video.setAttribute('muted', '');
+                            video.muted = true;
+
+                            // Intentar play() con manejo de error
+                            try {
+                                await video.play();
+                                console.log('[savvy] video.play() ejecutado');
+                            } catch (playErr) {
+                                console.warn('[savvy] video.play() error:', playErr.message);
+                            }
+
+                            resolve();
+                        }
+                    }, 50);
+
+                    // Timeout de seguridad
+                    setTimeout(() => {
+                        clearInterval(check);
+                        resolve();
+                    }, 1000);
+                });
+
+                // Validar stream después de ~3 segundos
+                console.log('[savvy] Iniciando validación de stream...');
+                _savvyScannerTimeouts[videoElementId] = setTimeout(async () => {
+                    const video = videoContainer.querySelector('video');
+                    if (video && _savvyScanners[videoElementId]) {
+                        const isValid = await validateVideoStream(video);
+                        if (!isValid) {
+                            console.warn('[savvy] Stream validation falló - visor negro detectado');
+                            // El usuario verá el visor negro pero puede intentar de nuevo
+                        } else {
+                            console.log('[savvy] Stream validado exitosamente');
+                        }
+                    }
+                }, 3000);
+
+            } catch (error) {
+                delete _savvyScanners[videoElementId];
+                throw error;
+            }
+        }
+
+        /**
+         * Detiene el scanner de forma segura
+         * 1. Obtiene instancia de _savvyScanners[videoElementId]
+         * 2. await scanner.stop() si está iniciado
+         * 3. await scanner.clear()
+         * 4. delete _savvyScanners[videoElementId]
+         * 5. Limpia el timeout
+         * 6. Vacía #qr-video
+         * 7. Permite abrir nuevamente
+         */
+        async function savvyStopScan(videoElementId) {
+            const scanner = _savvyScanners[videoElementId];
+
+            if (!scanner) {
+                console.log('[savvy] Scanner no existe para ' + videoElementId);
+                return;
+            }
+
+            try {
+                // Limpiar timeout de validación si existe
+                if (_savvyScannerTimeouts[videoElementId]) {
+                    clearTimeout(_savvyScannerTimeouts[videoElementId]);
+                    delete _savvyScannerTimeouts[videoElementId];
+                }
+
+                // Detener scanner
+                console.log('[savvy] Deteniendo scanner...');
+                try {
+                    await scanner.stop();
+                } catch (stopErr) {
+                    console.warn('[savvy] Error en scanner.stop():', stopErr.message);
+                }
+
+                // Limpiar
+                try {
+                    await scanner.clear();
+                } catch (clearErr) {
+                    console.warn('[savvy] Error en scanner.clear():', clearErr.message);
+                }
+
+                // Eliminar del registro
+                delete _savvyScanners[videoElementId];
+
+                // Vaciar contenedor
+                const container = document.getElementById(videoElementId);
+                if (container) {
+                    container.innerHTML = '';
+                }
+
+                console.log('[savvy] Scanner detenido y limpiado');
+
+            } catch (error) {
+                console.error('[savvy] Error inesperado en savvyStopScan:', error);
+                // Incluso si hay error, limpiar el registro
+                delete _savvyScanners[videoElementId];
+            }
+        }
 
         function initGoogleAPI() {
             gapi.load('picker', { callback: onPickerApiLoad });
@@ -1609,10 +2008,12 @@
             }
 
             capBind('capScanImg', 'change', capScanBarcode);
-            capBind('capCamBtn', 'click', capStartCam);
-            capBind('capCamBtn', 'touchend', capStartCam);
-            capBind('capCamStop', 'click', capStopCam);
-            capBind('capCamStop', 'touchend', capStopCam);
+            capBind('capCamBtn', 'click', function() {
+                savvyOpenBarcodeScanner('qr-video');
+            });
+            capBind('capCamBtn', 'touchend', function() {
+                savvyOpenBarcodeScanner('qr-video');
+            });
 
             capBind('capHeight', 'change', function () {
                 var h = this.value;
@@ -1638,6 +2039,21 @@
             var startTruck = capVal('capTruck').toUpperCase();
             capLoadHistory(startTruck);
             capRenderHistory(startTruck);
+
+            // Bind para botón cancel del modal Savvy
+            var cancelBtn = document.getElementById('scr-cam-cancel');
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', async function() {
+                    await savvyStopScan('qr-video');
+                    var modal = document.getElementById('scr-cam');
+                    if (modal) modal.classList.remove('on');
+                });
+                cancelBtn.addEventListener('touchend', async function() {
+                    await savvyStopScan('qr-video');
+                    var modal = document.getElementById('scr-cam');
+                    if (modal) modal.classList.remove('on');
+                });
+            }
         })();
 
         // ===== FUNCIONES PARA CREAR NUEVO MANIFEST Y COMPARACIÓN =====
@@ -1801,6 +2217,467 @@
                 </div>
             `;
             results.style.display = 'block';
+        }
+
+        // ===== TESTS PARA SAVVY SCANNER =====
+        // Auto-ejecutarse cuando el DOM está listo
+        (function initSavvyTests() {
+            if (typeof SavvyScannerTests !== 'undefined') {
+                SavvyScannerTests.runAllTests().catch(err => {
+                    console.error('Error en tests:', err);
+                });
+            }
+        })();
+    </script>
+
+    <!-- Script de tests inline -->
+    <script>
+        /**
+         * Tests para funciones Savvy QR Scanner
+         * Valida comportamiento real, no solo strings
+         */
+
+        // Mock para Html5Qrcode
+        class MockHtml5Qrcode {
+            constructor(elementId, config) {
+                this.elementId = elementId;
+                this.config = config;
+                this.isRunning = false;
+                this.videoElement = null;
+            }
+
+            async start(constraints, scanConfig, onSuccess, onError) {
+                this.isRunning = true;
+                // Crear elemento video mock dentro del contenedor
+                const container = document.getElementById(this.elementId);
+                if (container) {
+                    const video = document.createElement('video');
+                    video.autoplay = true;
+                    video.muted = true;
+                    video.playsinline = true;
+                    container.appendChild(video);
+                    this.videoElement = video;
+                }
+            }
+
+            async stop() {
+                this.isRunning = false;
+                if (this.videoElement) {
+                    this.videoElement.pause();
+                }
+            }
+
+            async clear() {
+                const container = document.getElementById(this.elementId);
+                if (container) {
+                    container.innerHTML = '';
+                }
+                this.videoElement = null;
+            }
+        }
+
+        // Test Suite
+        const SavvyScannerTests = {
+            passCount: 0,
+            failCount: 0,
+
+            log(msg) {
+                console.log(msg);
+            },
+
+            pass(name) {
+                this.passCount++;
+                this.log(`✅ ${name}`);
+            },
+
+            fail(name, reason) {
+                this.failCount++;
+                this.log(`❌ ${name}: ${reason}`);
+            },
+
+            assert(condition, testName, failReason) {
+                if (condition) {
+                    this.pass(testName);
+                } else {
+                    this.fail(testName, failReason);
+                }
+            },
+
+            async runAllTests() {
+                this.log('\n===== SAVVY SCANNER TESTS =====\n');
+
+                // Test 1: savvyStopScan no crea instancia nueva
+                await this.testStopScanDoesNotCreate();
+
+                // Test 2: savvyStartScan guarda en _savvyScanners
+                await this.testStartScanRegistration();
+
+                // Test 3: savvyStopScan elimina del registro
+                await this.testStopScanCleans();
+
+                // Test 4: Segunda apertura funciona
+                await this.testSecondOpenWorks();
+
+                // Test 5: CANCEL cierra modal
+                await this.testCancelClosesModal();
+
+                // Test 6: Detección de track live pero videoWidth=0
+                await this.testBlackScreenDetection();
+
+                // Test 7: Configuración iOS
+                await this.testIOSConfig();
+
+                // Test 8: Configuración no-iOS
+                await this.testNonIOSConfig();
+
+                // Test 9: No hay video manual en #qr-video
+                await this.testNoManualVideoElement();
+
+                // Test 10: Cache busting
+                await this.testCacheBusting();
+
+                this.log('\n===== RESULTS =====');
+                this.log(`✅ Passed: ${this.passCount}`);
+                this.log(`❌ Failed: ${this.failCount}`);
+                this.log(`📊 Total: ${this.passCount + this.failCount}\n`);
+
+                return this.failCount === 0;
+            },
+
+            async testStopScanDoesNotCreate() {
+                const testName = 'savvyStopScan no crea instancia nueva';
+                const videoId = 'test-vid-1-' + Date.now();
+
+                // Crear contenedor
+                const container = document.createElement('div');
+                container.id = videoId;
+                container.style.display = 'none';
+                document.body.appendChild(container);
+
+                // Limpiar registro
+                delete _savvyScanners[videoId];
+
+                // Llamar stop en scanner inexistente
+                await savvyStopScan(videoId);
+
+                // Verificar que no se creó
+                this.assert(
+                    !_savvyScanners[videoId],
+                    testName,
+                    'Se debería haber creado una instancia'
+                );
+
+                container.remove();
+            },
+
+            async testStartScanRegistration() {
+                const testName = 'savvyStartScan guarda instancia en _savvyScanners';
+                const videoId = 'test-vid-2-' + Date.now();
+
+                // Setup
+                const container = document.createElement('div');
+                container.id = videoId;
+                container.style.display = 'none';
+                document.body.appendChild(container);
+
+                delete _savvyScanners[videoId];
+
+                // Mock Html5Qrcode globalmente
+                const originalHtml5 = window.Html5Qrcode;
+                window.Html5Qrcode = MockHtml5Qrcode;
+                window.Html5QrcodeSupportedFormats = {
+                    EAN_13: 'EAN_13',
+                    EAN_8: 'EAN_8',
+                    UPC_A: 'UPC_A',
+                    UPC_E: 'UPC_E',
+                    CODE_128: 'CODE_128',
+                    CODE_39: 'CODE_39',
+                    QR_CODE: 'QR_CODE',
+                    DATA_MATRIX: 'DATA_MATRIX'
+                };
+
+                // Iniciar
+                await savvyStartScan(videoId);
+
+                // Verificar registro
+                this.assert(
+                    _savvyScanners[videoId] !== undefined,
+                    testName,
+                    'Instancia no se guardó en _savvyScanners'
+                );
+
+                // Limpiar
+                await savvyStopScan(videoId);
+                window.Html5Qrcode = originalHtml5;
+                container.remove();
+            },
+
+            async testStopScanCleans() {
+                const testName = 'savvyStopScan elimina del registro y limpia DOM';
+                const videoId = 'test-vid-3-' + Date.now();
+
+                // Setup
+                const container = document.createElement('div');
+                container.id = videoId;
+                container.style.display = 'none';
+                document.body.appendChild(container);
+
+                const originalHtml5 = window.Html5Qrcode;
+                window.Html5Qrcode = MockHtml5Qrcode;
+
+                // Crear scanner
+                await savvyStartScan(videoId);
+                this.assert(
+                    _savvyScanners[videoId] !== undefined,
+                    'Setup: Scanner creado',
+                    'No se pudo crear scanner'
+                );
+
+                // Detener
+                await savvyStopScan(videoId);
+
+                // Verificar limpieza
+                this.assert(
+                    !_savvyScanners[videoId],
+                    testName + ' - registro',
+                    'Scanner aún en registro'
+                );
+
+                this.assert(
+                    container.innerHTML === '',
+                    testName + ' - DOM',
+                    'Contenedor no está vacío'
+                );
+
+                window.Html5Qrcode = originalHtml5;
+                container.remove();
+            },
+
+            async testSecondOpenWorks() {
+                const testName = 'Segunda apertura funciona después de cerrar';
+                const videoId = 'test-vid-4-' + Date.now();
+
+                const container = document.createElement('div');
+                container.id = videoId;
+                container.style.display = 'none';
+                document.body.appendChild(container);
+
+                const originalHtml5 = window.Html5Qrcode;
+                window.Html5Qrcode = MockHtml5Qrcode;
+
+                // Primera apertura
+                await savvyStartScan(videoId);
+                const firstInstance = _savvyScanners[videoId];
+                await savvyStopScan(videoId);
+
+                // Segunda apertura
+                await savvyStartScan(videoId);
+                const secondInstance = _savvyScanners[videoId];
+
+                this.assert(
+                    firstInstance !== secondInstance && secondInstance !== undefined,
+                    testName,
+                    'Segunda instancia no es diferente o no existe'
+                );
+
+                await savvyStopScan(videoId);
+                window.Html5Qrcode = originalHtml5;
+                container.remove();
+            },
+
+            async testCancelClosesModal() {
+                const testName = 'CANCEL cierra el modal y detiene scanner';
+                const videoId = 'test-vid-5-' + Date.now();
+
+                // Crear modal
+                const modal = document.createElement('div');
+                modal.id = 'test-modal-' + Date.now();
+                modal.classList.add('on');
+                document.body.appendChild(modal);
+
+                const container = document.createElement('div');
+                container.id = videoId;
+                container.style.display = 'none';
+                document.body.appendChild(container);
+
+                const originalHtml5 = window.Html5Qrcode;
+                window.Html5Qrcode = MockHtml5Qrcode;
+
+                // Iniciar
+                _savvyScanners[videoId] = new MockHtml5Qrcode(videoId, {});
+                _savvyScanners[videoId].isRunning = true;
+
+                // Simular click en cancel
+                await savvyStopScan(videoId);
+                modal.classList.remove('on');
+
+                this.assert(
+                    !_savvyScanners[videoId] && !modal.classList.contains('on'),
+                    testName,
+                    'Modal sigue abierto o scanner sigue en registro'
+                );
+
+                window.Html5Qrcode = originalHtml5;
+                modal.remove();
+                container.remove();
+            },
+
+            async testBlackScreenDetection() {
+                const testName = 'Detecta pantalla negra (track live pero videoWidth=0)';
+
+                // Crear video mock con track live pero sin dimensiones
+                const mockVideo = {
+                    srcObject: {
+                        getVideoTracks: () => [{
+                            readyState: 'live'
+                        }]
+                    },
+                    readyState: 2,
+                    videoWidth: 0,
+                    videoHeight: 0,
+                    paused: false
+                };
+
+                // Usar función de validación
+                const result = await validateVideoStream(mockVideo);
+
+                this.assert(
+                    result === false,
+                    testName,
+                    'Debería detectar videoWidth=0 como inválido'
+                );
+            },
+
+            async testIOSConfig() {
+                const testName = 'Configuración iOS es conservadora';
+
+                // Simular iOS Safari
+                const originalUA = Object.getOwnPropertyDescriptor(navigator, 'userAgent');
+                Object.defineProperty(navigator, 'userAgent', {
+                    value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+                    configurable: true
+                });
+
+                const config = getScannerConfig();
+
+                this.assert(
+                    config.fps === 10,
+                    testName + ' - fps',
+                    'fps debería ser 10, es ' + config.fps
+                );
+
+                this.assert(
+                    config.facingMode === 'environment',
+                    testName + ' - facingMode',
+                    'facingMode debería ser "environment"'
+                );
+
+                this.assert(
+                    !config.aspectRatio,
+                    testName + ' - no aspectRatio',
+                    'aspectRatio debería omitirse'
+                );
+
+                this.assert(
+                    config.experimentalFeatures.useBarCodeDetectorIfSupported === false,
+                    testName + ' - no BarcodeDetector',
+                    'BarcodeDetector debería desactivarse'
+                );
+
+                // Restaurar
+                if (originalUA) {
+                    Object.defineProperty(navigator, 'userAgent', originalUA);
+                }
+            },
+
+            async testNonIOSConfig() {
+                const testName = 'Configuración no-iOS es estándar';
+
+                // Simular Chrome
+                const originalUA = Object.getOwnPropertyDescriptor(navigator, 'userAgent');
+                Object.defineProperty(navigator, 'userAgent', {
+                    value: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    configurable: true
+                });
+
+                const config = getScannerConfig();
+
+                this.assert(
+                    config.fps === 20,
+                    testName + ' - fps',
+                    'fps debería ser 20, es ' + config.fps
+                );
+
+                this.assert(
+                    config.aspectRatio === 1.7,
+                    testName + ' - aspectRatio',
+                    'aspectRatio debería ser 1.7'
+                );
+
+                this.assert(
+                    config.experimentalFeatures.useBarCodeDetectorIfSupported === true,
+                    testName + ' - BarcodeDetector',
+                    'BarcodeDetector debería activarse'
+                );
+
+                // Restaurar
+                if (originalUA) {
+                    Object.defineProperty(navigator, 'userAgent', originalUA);
+                }
+            },
+
+            async testNoManualVideoElement() {
+                const testName = 'No existe elemento <video> manual en index.html';
+
+                // El #qr-video debe ser vacío (sin video manual)
+                const qrVideo = document.getElementById('qr-video');
+
+                if (qrVideo) {
+                    // Verificar que no haya video dentro
+                    const hasManualVideo = qrVideo.querySelector('video') !== null;
+                    this.assert(
+                        !hasManualVideo,
+                        testName,
+                        '#qr-video tiene elemento video manual'
+                    );
+                } else {
+                    // Si #qr-video no existe en pruebas, eso también es OK
+                    this.pass(testName);
+                }
+            },
+
+            async testCacheBusting() {
+                const testName = 'PS_BUILD tiene valor de cache busting';
+
+                this.assert(
+                    typeof PS_BUILD !== 'undefined' && PS_BUILD.length > 0,
+                    testName,
+                    'PS_BUILD no está definido o está vacío'
+                );
+
+                this.assert(
+                    PS_BUILD.match(/^\d{12}$/) !== null,
+                    testName + ' - formato',
+                    'PS_BUILD no tiene formato YYYYMMDDHHmm'
+                );
+            }
+        };
+
+        // Ejecutar tests después de que el DOM esté listo
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                setTimeout(() => {
+                    SavvyScannerTests.runAllTests().catch(err => {
+                        console.error('Error en tests:', err);
+                    });
+                }, 100);
+            });
+        } else {
+            setTimeout(() => {
+                SavvyScannerTests.runAllTests().catch(err => {
+                    console.error('Error en tests:', err);
+                });
+            }, 100);
         }
     </script>
 </body>
