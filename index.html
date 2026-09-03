@@ -752,6 +752,69 @@
                 <div id="comparisonResults" style="display: none; margin-top: 20px;"></div>
             </div>
 
+            <!-- MULTIPACK GENERATOR SECTION -->
+            <div class="section full-width">
+                <h2><span class="icon">📦</span> Generador de Multipacks</h2>
+
+                <div class="form-group">
+                    <label>Selecciona imagen del producto</label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="mpImageInput" accept="image/*">
+                        <label for="mpImageInput" class="file-input-label">
+                            🖼️ Seleccionar Imagen
+                        </label>
+                    </div>
+                    <div id="mpStatus" class="status"></div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-top: 20px;" id="mpGallery">
+                    <div style="background: #f8f9fa; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;">
+                        <div style="background: #667eea; color: white; padding: 10px; text-align: center; font-weight: 600; font-size: 12px;">2-Pack</div>
+                        <canvas id="mpCanvas-2" width="1200" height="1200" style="width: 100%; height: auto; display: block; background: white;"></canvas>
+                    </div>
+                    <div style="background: #f8f9fa; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;">
+                        <div style="background: #667eea; color: white; padding: 10px; text-align: center; font-weight: 600; font-size: 12px;">3-Pack</div>
+                        <canvas id="mpCanvas-3" width="1200" height="1200" style="width: 100%; height: auto; display: block; background: white;"></canvas>
+                    </div>
+                    <div style="background: #f8f9fa; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;">
+                        <div style="background: #667eea; color: white; padding: 10px; text-align: center; font-weight: 600; font-size: 12px;">4-Pack</div>
+                        <canvas id="mpCanvas-4" width="1200" height="1200" style="width: 100%; height: auto; display: block; background: white;"></canvas>
+                    </div>
+                    <div style="background: #f8f9fa; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;">
+                        <div style="background: #667eea; color: white; padding: 10px; text-align: center; font-weight: 600; font-size: 12px;">5-Pack</div>
+                        <canvas id="mpCanvas-5" width="1200" height="1200" style="width: 100%; height: auto; display: block; background: white;"></canvas>
+                    </div>
+                    <div style="background: #f8f9fa; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;">
+                        <div style="background: #667eea; color: white; padding: 10px; text-align: center; font-weight: 600; font-size: 12px;">6-Pack</div>
+                        <canvas id="mpCanvas-6" width="1200" height="1200" style="width: 100%; height: auto; display: block; background: white;"></canvas>
+                    </div>
+                    <div style="background: #f8f9fa; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;">
+                        <div style="background: #667eea; color: white; padding: 10px; text-align: center; font-weight: 600; font-size: 12px;">7-Pack</div>
+                        <canvas id="mpCanvas-7" width="1200" height="1200" style="width: 100%; height: auto; display: block; background: white;"></canvas>
+                    </div>
+                    <div style="background: #f8f9fa; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;">
+                        <div style="background: #667eea; color: white; padding: 10px; text-align: center; font-weight: 600; font-size: 12px;">8-Pack</div>
+                        <canvas id="mpCanvas-8" width="1200" height="1200" style="width: 100%; height: auto; display: block; background: white;"></canvas>
+                    </div>
+                    <div style="background: #f8f9fa; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;">
+                        <div style="background: #667eea; color: white; padding: 10px; text-align: center; font-weight: 600; font-size: 12px;">9-Pack</div>
+                        <canvas id="mpCanvas-9" width="1200" height="1200" style="width: 100%; height: auto; display: block; background: white;"></canvas>
+                    </div>
+                    <div style="background: #f8f9fa; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;">
+                        <div style="background: #667eea; color: white; padding: 10px; text-align: center; font-weight: 600; font-size: 12px;">10-Pack</div>
+                        <canvas id="mpCanvas-10" width="1200" height="1200" style="width: 100%; height: auto; display: block; background: white;"></canvas>
+                    </div>
+                    <div style="background: #f8f9fa; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;">
+                        <div style="background: #667eea; color: white; padding: 10px; text-align: center; font-weight: 600; font-size: 12px;">11-Pack</div>
+                        <canvas id="mpCanvas-11" width="1200" height="1200" style="width: 100%; height: auto; display: block; background: white;"></canvas>
+                    </div>
+                    <div style="background: #f8f9fa; border-radius: 8px; overflow: hidden; border: 1px solid #e0e0e0;">
+                        <div style="background: #667eea; color: white; padding: 10px; text-align: center; font-weight: 600; font-size: 12px;">12-Pack</div>
+                        <canvas id="mpCanvas-12" width="1200" height="1200" style="width: 100%; height: auto; display: block; background: white;"></canvas>
+                    </div>
+                </div>
+            </div>
+
             <!-- SECTION 2: SEARCH & VIEW -->
             <div class="section">
                 <h2><span class="icon">🔍</span> Buscar Manifiesto</h2>
@@ -1802,6 +1865,717 @@
             `;
             results.style.display = 'block';
         }
+
+        // ===== MULTIPACK GENERATOR: Integration from approved artifact =====
+        const PACK_BADGE_COLOR = '#0F97DB';
+
+        function psComputeLayout(count, sz, imgAspect){
+          if (count === 1) {
+            const h = sz*.95, w = h*imgAspect;
+            let s = 1; if (w > sz*.95) s = (sz*.95)/w;
+            return [{x:sz/2, y:sz/2, w:w*s, h:h*s}];
+          }
+
+          const isWide = imgAspect > 1.6;
+          const isTall = imgAspect < 0.75;
+          const isStd = !isWide && !isTall;
+
+          const safeMargin = 30;
+          const eps = 0.5;
+          let positions = [];
+
+          const makeRow = (itemCount, centerX, y, unitW, unitH, spacingFactor, rowOffsetX = 0) => {
+            const spacing = unitW * spacingFactor;
+            const totalWidth = (itemCount - 1) * spacing + unitW;
+            const startX = centerX - totalWidth / 2 + rowOffsetX;
+            const row = [];
+            for (let i = 0; i < itemCount; i++) {
+              row.push({
+                x: startX + i * spacing,
+                y: y,
+                w: unitW,
+                h: unitH
+              });
+            }
+            return row;
+          };
+
+          if (count === 2) {
+            if (isTall) {
+              const unitH = sz * 0.32;
+              const unitW = unitH * imgAspect;
+              const horizDistance = unitW * 0.80;
+              const vertDistance = unitH * 0.35;
+              const centerX = 600;
+              const baseY = 430;
+              const rear_cx = centerX - horizDistance / 2;
+              const rear_cy = baseY - vertDistance / 2;
+              const front_cx = centerX + horizDistance / 2;
+              const front_cy = baseY + vertDistance / 2;
+              const rearRow = makeRow(1, rear_cx, rear_cy, unitW, unitH, 0);
+              const frontRow = makeRow(1, front_cx, front_cy, unitW, unitH, 0);
+              positions.push(...rearRow, ...frontRow);
+            } else if (isWide) {
+              const unitH = sz * 0.20;
+              const unitW = unitH * imgAspect;
+              const horizDistance = unitW * 0.80;
+              const vertDistance = unitH * 0.33;
+              const centerX = 600;
+              const baseY = 420;
+              const rear_cx = centerX - horizDistance / 2;
+              const rear_cy = baseY - vertDistance / 2;
+              const front_cx = centerX + horizDistance / 2;
+              const front_cy = baseY + vertDistance / 2;
+              const rearRow = makeRow(1, rear_cx, rear_cy, unitW, unitH, 0);
+              const frontRow = makeRow(1, front_cx, front_cy, unitW, unitH, 0);
+              positions.push(...rearRow, ...frontRow);
+            } else {
+              const unitH = sz * 0.32;
+              const unitW = unitH * imgAspect;
+              const horizDistance = unitW * 0.80;
+              const vertDistance = unitH * 0.35;
+              const centerX = 600;
+              const baseY = 430;
+              const rear_cx = centerX - horizDistance / 2;
+              const rear_cy = baseY - vertDistance / 2;
+              const front_cx = centerX + horizDistance / 2;
+              const front_cy = baseY + vertDistance / 2;
+              const rearRow = makeRow(1, rear_cx, rear_cy, unitW, unitH, 0);
+              const frontRow = makeRow(1, front_cx, front_cy, unitW, unitH, 0);
+              positions.push(...rearRow, ...frontRow);
+            }
+          } else if (count === 3) {
+            if (isTall) {
+              const unitH = sz * 0.30;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(2, 450, 340, unitW, unitH, 1.15);
+              const frontRow = makeRow(1, 450, 480, unitW, unitH, 0);
+              positions.push(...rearRow, ...frontRow);
+            } else if (isWide) {
+              const unitH = sz * 0.18;
+              const unitW = unitH * imgAspect;
+              positions.push({x: 320, y: 340, w: unitW, h: unitH});
+              positions.push({x: 420, y: 400, w: unitW, h: unitH});
+              positions.push({x: 520, y: 460, w: unitW, h: unitH});
+            } else {
+              const unitH = sz * 0.28;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(2, 450, 340, unitW, unitH, 1.10);
+              const frontRow = makeRow(1, 450, 480, unitW, unitH, 0);
+              positions.push(...rearRow, ...frontRow);
+            }
+          } else if (count === 4) {
+            if (isTall) {
+              const unitH = sz * 0.27;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(2, 425, 320, unitW, unitH, 1.0);
+              const frontRow = makeRow(2, 395, 470, unitW, unitH, 1.0);
+              positions.push(...rearRow, ...frontRow);
+            } else if (isWide) {
+              const unitH = sz * 0.16;
+              const unitW = unitH * imgAspect;
+              positions.push({x: 320, y: 320, w: unitW, h: unitH});
+              positions.push({x: 420, y: 340, w: unitW, h: unitH});
+              positions.push({x: 340, y: 440, w: unitW, h: unitH});
+              positions.push({x: 440, y: 460, w: unitW, h: unitH});
+            } else {
+              const unitH = sz * 0.25;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(2, 425, 320, unitW, unitH, 0.95);
+              const frontRow = makeRow(2, 395, 470, unitW, unitH, 0.95);
+              positions.push(...rearRow, ...frontRow);
+            }
+          } else if (count === 5) {
+            if (isTall) {
+              const unitH = sz * 0.24;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(3, 420, 310, unitW, unitH, 0.95);
+              const frontRow = makeRow(2, 420, 470, unitW, unitH, 0.95);
+              positions.push(...rearRow, ...frontRow);
+            } else if (isWide) {
+              const unitH = sz * 0.15;
+              const unitW = unitH * imgAspect;
+              positions.push({x: 300, y: 310, w: unitW, h: unitH});
+              positions.push({x: 380, y: 340, w: unitW, h: unitH});
+              positions.push({x: 460, y: 370, w: unitW, h: unitH});
+              positions.push({x: 330, y: 450, w: unitW, h: unitH});
+              positions.push({x: 410, y: 480, w: unitW, h: unitH});
+            } else {
+              const unitH = sz * 0.22;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(3, 420, 310, unitW, unitH, 0.90);
+              const frontRow = makeRow(2, 420, 470, unitW, unitH, 0.90);
+              positions.push(...rearRow, ...frontRow);
+            }
+          } else if (count === 6) {
+            if (isTall) {
+              const unitH = sz * 0.22;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(3, 430, 300, unitW, unitH, 1.06);
+              const frontRow = makeRow(3, 400, 460, unitW, unitH, 1.06);
+              positions.push(...rearRow, ...frontRow);
+            } else if (isWide) {
+              const unitH = sz * 0.14;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(3, 375, 310, unitW, unitH, 0.90);
+              const frontRow = makeRow(3, 355, 430, unitW, unitH, 0.90);
+              positions.push(...rearRow, ...frontRow);
+            } else {
+              const unitH = sz * 0.20;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(3, 430, 320, unitW, unitH, 1.01);
+              const frontRow = makeRow(3, 400, 480, unitW, unitH, 1.01);
+              positions.push(...rearRow, ...frontRow);
+            }
+          } else if (count === 7) {
+            if (isTall) {
+              const unitH = sz * 0.20;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(3, 450, 290, unitW, unitH, 0.80);
+              const middleRow = makeRow(2, 450, 370, unitW, unitH, 0.83);
+              const frontRow = makeRow(2, 450, 450, unitW, unitH, 0.83);
+              positions.push(...rearRow, ...middleRow, ...frontRow);
+            } else if (isWide) {
+              const unitH = sz * 0.13;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(3, 385, 320, unitW, unitH, 0.59);
+              const middleRow = makeRow(2, 385, 370, unitW, unitH, 0.62);
+              const frontRow = makeRow(2, 385, 420, unitW, unitH, 0.62);
+              positions.push(...rearRow, ...middleRow, ...frontRow);
+            } else {
+              const unitH = sz * 0.18;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(3, 450, 320, unitW, unitH, 0.76);
+              const middleRow = makeRow(2, 450, 380, unitW, unitH, 0.80);
+              const frontRow = makeRow(2, 450, 440, unitW, unitH, 0.80);
+              positions.push(...rearRow, ...middleRow, ...frontRow);
+            }
+          } else if (count === 8) {
+            if (isTall) {
+              const unitH = sz * 0.18;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(3, 450, 285, unitW, unitH, 0.80);
+              const middleRow = makeRow(3, 450, 350, unitW, unitH, 0.82);
+              const frontRow = makeRow(2, 450, 415, unitW, unitH, 0.83);
+              positions.push(...rearRow, ...middleRow, ...frontRow);
+            } else if (isWide) {
+              const unitH = sz * 0.12;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(3, 390, 310, unitW, unitH, 0.60);
+              const middleRow = makeRow(3, 390, 360, unitW, unitH, 0.62);
+              const frontRow = makeRow(2, 390, 410, unitW, unitH, 0.64);
+              positions.push(...rearRow, ...middleRow, ...frontRow);
+            } else {
+              const unitH = sz * 0.16;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(3, 450, 310, unitW, unitH, 0.77);
+              const middleRow = makeRow(3, 450, 365, unitW, unitH, 0.80);
+              const frontRow = makeRow(2, 450, 420, unitW, unitH, 0.81);
+              positions.push(...rearRow, ...middleRow, ...frontRow);
+            }
+          } else if (count === 9) {
+            if (isTall) {
+              const unitH = sz * 0.16;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(3, 460, 280, unitW, unitH, 0.81);
+              const middleRow = makeRow(3, 460, 332, unitW, unitH, 0.82);
+              const frontRow = makeRow(3, 460, 384, unitW, unitH, 0.82);
+              positions.push(...rearRow, ...middleRow, ...frontRow);
+            } else if (isWide) {
+              const unitH = sz * 0.11;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(3, 395, 310, unitW, unitH, 0.62);
+              const middleRow = makeRow(3, 395, 347, unitW, unitH, 0.63);
+              const frontRow = makeRow(3, 395, 384, unitW, unitH, 0.63);
+              positions.push(...rearRow, ...middleRow, ...frontRow);
+            } else {
+              const unitH = sz * 0.14;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(3, 460, 310, unitW, unitH, 0.78);
+              const middleRow = makeRow(3, 460, 355, unitW, unitH, 0.80);
+              const frontRow = makeRow(3, 460, 400, unitW, unitH, 0.80);
+              positions.push(...rearRow, ...middleRow, ...frontRow);
+            }
+          } else if (count === 10) {
+            if (isTall) {
+              const unitH = sz * 0.15;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(4, 420, 280, unitW, unitH, 0.76);
+              const spacing3 = unitW * 0.78;
+              const middleOffsetX = spacing3 * 0.35;
+              const middleRow = makeRow(3, 420, 364, unitW, unitH, 0.78, middleOffsetX);
+              const frontRow = makeRow(3, 420, 432, unitW, unitH, 0.78, middleOffsetX);
+              positions.push(...rearRow, ...middleRow, ...frontRow);
+            } else if (isWide) {
+              const unitH = sz * 0.10;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(4, 382, 310, unitW, unitH, 0.54);
+              const spacing3 = unitW * 0.57;
+              const middleOffsetX = spacing3 * 0.25;
+              const middleRow = makeRow(3, 382, 368, unitW, unitH, 0.57, middleOffsetX);
+              const frontRow = makeRow(3, 382, 415, unitW, unitH, 0.57, middleOffsetX);
+              positions.push(...rearRow, ...middleRow, ...frontRow);
+            } else {
+              const unitH = sz * 0.13;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(4, 430, 315, unitW, unitH, 0.74);
+              const spacing3 = unitW * 0.76;
+              const middleOffsetX = spacing3 * 0.30;
+              const middleRow = makeRow(3, 430, 390, unitW, unitH, 0.76, middleOffsetX);
+              const frontRow = makeRow(3, 430, 451, unitW, unitH, 0.76, middleOffsetX);
+              positions.push(...rearRow, ...middleRow, ...frontRow);
+            }
+          } else if (count === 11) {
+            if (isTall) {
+              const unitH = sz * 0.14;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(4, 419, 280, unitW, unitH, 0.76);
+              const spacing4 = unitW * 0.78;
+              const middleOffsetX = spacing4 * 0.25;
+              const middleRow = makeRow(4, 419, 357, unitW, unitH, 0.78, middleOffsetX);
+              const frontOffsetX = spacing4 * 0.40;
+              const frontRow = makeRow(3, 419, 419, unitW, unitH, 0.78, frontOffsetX);
+              positions.push(...rearRow, ...middleRow, ...frontRow);
+            } else if (isWide) {
+              const unitH = sz * 0.095;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(4, 382, 310, unitW, unitH, 0.54);
+              const spacing4 = unitW * 0.57;
+              const middleOffsetX = spacing4 * 0.20;
+              const middleRow = makeRow(4, 382, 359, unitW, unitH, 0.57, middleOffsetX);
+              const frontOffsetX = spacing4 * 0.30;
+              const frontRow = makeRow(3, 382, 398, unitW, unitH, 0.57, frontOffsetX);
+              positions.push(...rearRow, ...middleRow, ...frontRow);
+            } else {
+              const unitH = sz * 0.12;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(4, 427, 315, unitW, unitH, 0.74);
+              const spacing4 = unitW * 0.76;
+              const middleOffsetX = spacing4 * 0.23;
+              const middleRow = makeRow(4, 427, 382, unitW, unitH, 0.76, middleOffsetX);
+              const frontOffsetX = spacing4 * 0.35;
+              const frontRow = makeRow(3, 427, 436, unitW, unitH, 0.76, frontOffsetX);
+              positions.push(...rearRow, ...middleRow, ...frontRow);
+            }
+          } else if (count === 12) {
+            if (isTall) {
+              const unitH = sz * 0.13;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(4, 417, 280, unitW, unitH, 0.76);
+              const spacing4 = unitW * 0.78;
+              const middleOffsetX = spacing4 * 0.22;
+              const middleRow = makeRow(4, 417, 355, unitW, unitH, 0.78, middleOffsetX);
+              const frontRow = makeRow(4, 417, 416, unitW, unitH, 0.78);
+              positions.push(...rearRow, ...middleRow, ...frontRow);
+            } else if (isWide) {
+              const unitH = sz * 0.09;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(4, 382, 310, unitW, unitH, 0.54);
+              const spacing4 = unitW * 0.57;
+              const middleOffsetX = spacing4 * 0.20;
+              const middleRow = makeRow(4, 382, 361, unitW, unitH, 0.57, middleOffsetX);
+              const frontRow = makeRow(4, 382, 402, unitW, unitH, 0.57);
+              positions.push(...rearRow, ...middleRow, ...frontRow);
+            } else {
+              const unitH = sz * 0.11;
+              const unitW = unitH * imgAspect;
+              const rearRow = makeRow(4, 425, 315, unitW, unitH, 0.74);
+              const spacing4 = unitW * 0.76;
+              const middleOffsetX = spacing4 * 0.20;
+              const middleRow = makeRow(4, 425, 375, unitW, unitH, 0.76, middleOffsetX);
+              const frontRow = makeRow(4, 425, 423, unitW, unitH, 0.76);
+              positions.push(...rearRow, ...middleRow, ...frontRow);
+            }
+          }
+
+          let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+
+          for (const p of positions) {
+            minX = Math.min(minX, p.x - p.w / 2);
+            maxX = Math.max(maxX, p.x + p.w / 2);
+            minY = Math.min(minY, p.y - p.h / 2);
+            maxY = Math.max(maxY, p.y + p.h / 2);
+          }
+
+          let targetFill = 0.75;
+
+          if (isTall) {
+            if (count === 2) targetFill = 0.88;
+            else if (count === 3) targetFill = 0.86;
+            else if (count === 4) targetFill = 0.89;
+            else if (count === 5) targetFill = 0.89;
+            else if (count === 6) targetFill = 0.87;
+            else if (count === 7) targetFill = 0.92;
+            else if (count === 8) targetFill = 0.93;
+            else if (count === 9) targetFill = 0.93;
+            else if (count === 10) targetFill = 0.95;
+            else if (count === 11) targetFill = 0.95;
+            else targetFill = 0.95;
+          } else if (isWide) {
+            if (count === 2) targetFill = 0.72;
+            else if (count === 3) targetFill = 0.70;
+            else if (count === 4) targetFill = 0.75;
+            else if (count === 5) targetFill = 0.75;
+            else if (count === 6) targetFill = 0.73;
+            else if (count === 7) targetFill = 0.80;
+            else if (count === 8) targetFill = 0.81;
+            else if (count === 9) targetFill = 0.81;
+            else if (count === 10) targetFill = 0.90;
+            else if (count === 11) targetFill = 0.90;
+            else targetFill = 0.90;
+          } else {
+            if (count === 2) targetFill = 0.86;
+            else if (count === 3) targetFill = 0.84;
+            else if (count === 4) targetFill = 0.88;
+            else if (count === 5) targetFill = 0.88;
+            else if (count === 6) targetFill = 0.86;
+            else if (count === 7) targetFill = 0.91;
+            else if (count === 8) targetFill = 0.92;
+            else if (count === 9) targetFill = 0.92;
+            else if (count === 10) targetFill = 0.93;
+            else if (count === 11) targetFill = 0.93;
+            else targetFill = 0.93;
+          }
+
+          const horizSpace = sz - safeMargin * 2 - eps;
+          const vertSpace = sz - safeMargin * 2 - eps;
+          const groupWidth = maxX - minX;
+          const groupHeight = maxY - minY;
+
+          const horizMaxScale = horizSpace / groupWidth;
+          const vertMaxScale = vertSpace / groupHeight;
+          const horizTargetScale = (horizSpace / groupWidth) * targetFill;
+          const vertTargetScale = (vertSpace / groupHeight) * targetFill;
+
+          let groupScale = Math.min(horizTargetScale, vertTargetScale);
+          groupScale = Math.min(groupScale, horizMaxScale, vertMaxScale);
+
+          const centerX = (minX + maxX) / 2;
+          const centerY = (minY + maxY) / 2;
+          const canvasCenterX = sz / 2;
+          const canvasCenterY = sz / 2;
+
+          const finalPositions = positions.map(p => ({
+            x: canvasCenterX + (p.x - centerX) * groupScale,
+            y: canvasCenterY + (p.y - centerY) * groupScale,
+            w: p.w * groupScale,
+            h: p.h * groupScale
+          }));
+
+          return finalPositions;
+        }
+
+        function psDrawBadge(ctx, count, sz){
+          const r = Math.round(sz*.09), x = sz-r-Math.round(sz*.018), y = r+Math.round(sz*.018);
+          ctx.save();
+          ctx.shadowColor='rgba(0,0,0,.3)'; ctx.shadowBlur=25; ctx.shadowOffsetX=4; ctx.shadowOffsetY=4;
+          ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fillStyle=PACK_BADGE_COLOR; ctx.fill();
+          ctx.restore();
+          ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.strokeStyle='#fff'; ctx.lineWidth=Math.round(r*.07); ctx.stroke();
+          ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+          const numSz = count>=10 ? Math.round(r*.75) : Math.round(r*.95);
+          ctx.font = `900 ${numSz}px "Arial Black","Impact",Arial,sans-serif`;
+          ctx.fillText(count, x, y-r*.14);
+          ctx.font = `700 ${Math.round(r*.35)}px "Arial Black","Impact",Arial,sans-serif`;
+          ctx.fillText('Pack', x, y+r*.4);
+        }
+
+        let visibleBoundsCache = null;
+        let visibleBoundsCacheKey = null;
+
+        function fmtNumber(value, digits = 3) {
+          return Number.isFinite(value) ? Number(value).toFixed(digits) : '0.000';
+        }
+
+        function psGetVisibleImageBounds(img){
+          if (visibleBoundsCacheKey === img.src && visibleBoundsCache) {
+            console.log('📊 Using cached visible bounds');
+            return visibleBoundsCache;
+          }
+
+          try {
+            console.log('📊 Analyzing visible bounds for ' + img.width + '×' + img.height);
+
+            const MAX_ANALYSIS_DIM = 512;
+            const scale = Math.min(1, MAX_ANALYSIS_DIM / Math.max(img.width, img.height));
+            const analysisW = Math.round(img.width * scale);
+            const analysisH = Math.round(img.height * scale);
+            const invScale = 1 / scale;
+
+            console.log('📊 Analysis scale: ' + scale.toFixed(3) + ' (' + analysisW + '×' + analysisH + ')');
+
+            const analysisCanvas = document.createElement('canvas');
+            analysisCanvas.width = analysisW;
+            analysisCanvas.height = analysisH;
+            const analysisCtx = analysisCanvas.getContext('2d');
+            analysisCtx.drawImage(img, 0, 0, analysisW, analysisH);
+
+            console.log('📊 Analysis canvas created');
+
+            const imageData = analysisCtx.getImageData(0, 0, analysisW, analysisH);
+            const data = imageData.data;
+
+            console.log('📊 Image data extracted, scanning ' + (analysisW * analysisH) + ' pixels');
+
+            let analysisLeft = analysisW;
+            let analysisTop = analysisH;
+            let analysisRight = 0;
+            let analysisBottom = 0;
+
+            const alphaThreshold = 8;
+            let hasVisiblePixels = false;
+
+            for (let i = 3; i < data.length; i += 4) {
+              if (data[i] > alphaThreshold) {
+                hasVisiblePixels = true;
+                const pixelIndex = (i - 3) / 4;
+                const y = Math.floor(pixelIndex / analysisW);
+                const x = pixelIndex % analysisW;
+
+                if (x < analysisLeft) analysisLeft = x;
+                if (x > analysisRight) analysisRight = x;
+                if (y < analysisTop) analysisTop = y;
+                if (y > analysisBottom) analysisBottom = y;
+              }
+            }
+
+            console.log('📊 Alpha scan complete, hasVisiblePixels=' + hasVisiblePixels);
+
+            let visibleLeft, visibleTop, visibleRight, visibleBottom;
+
+            if (!hasVisiblePixels) {
+              visibleLeft = 0;
+              visibleTop = 0;
+              visibleRight = img.width - 1;
+              visibleBottom = img.height - 1;
+              console.log('📊 No transparent pixels, using full image');
+            } else {
+              visibleLeft = Math.round(analysisLeft * invScale);
+              visibleTop = Math.round(analysisTop * invScale);
+              visibleRight = Math.round(analysisRight * invScale);
+              visibleBottom = Math.round(analysisBottom * invScale);
+            }
+
+            const padWidth = (visibleRight - visibleLeft) * 0.03;
+            const padHeight = (visibleBottom - visibleTop) * 0.03;
+
+            visibleLeft = Math.max(0, Math.floor(visibleLeft - padWidth));
+            visibleTop = Math.max(0, Math.floor(visibleTop - padHeight));
+            visibleRight = Math.min(img.width - 1, Math.ceil(visibleRight + padWidth));
+            visibleBottom = Math.min(img.height - 1, Math.ceil(visibleBottom + padHeight));
+
+            const visibleWidth = visibleRight - visibleLeft + 1;
+            const visibleHeight = visibleBottom - visibleTop + 1;
+            const visibleAspect = visibleWidth / visibleHeight;
+
+            const totalWidth = img.width;
+            const totalHeight = img.height;
+            const padLeftPct = (visibleLeft / totalWidth) * 100;
+            const padRightPct = ((totalWidth - visibleRight - 1) / totalWidth) * 100;
+            const padTopPct = (visibleTop / totalHeight) * 100;
+            const padBottomPct = ((totalHeight - visibleBottom - 1) / totalHeight) * 100;
+
+            const sourceAspectRatio = img.width / img.height;
+
+            const bounds = {
+              left: visibleLeft,
+              top: visibleTop,
+              width: visibleWidth,
+              height: visibleHeight,
+              aspect: visibleAspect,
+              sourceAspect: sourceAspectRatio,
+              sourceW: img.width,
+              sourceH: img.height,
+              padding: {
+                leftPct: padLeftPct,
+                rightPct: padRightPct,
+                topPct: padTopPct,
+                bottomPct: padBottomPct
+              },
+              hasTransparency: hasVisiblePixels,
+              usedFallback: false
+            };
+
+            console.log('📊 Bounds calculated: ' + visibleWidth + '×' + visibleHeight + ' aspect=' + fmtNumber(visibleAspect, 3));
+
+            visibleBoundsCache = bounds;
+            visibleBoundsCacheKey = img.src;
+
+            return bounds;
+          } catch (error) {
+            console.error('❌ Visible bounds analysis failed:', error.message);
+            console.error('   Stack:', error.stack);
+            const fallback = {
+              left: 0,
+              top: 0,
+              width: img.width,
+              height: img.height,
+              aspect: img.width / img.height,
+              sourceAspect: img.width / img.height,
+              sourceW: img.width,
+              sourceH: img.height,
+              padding: {
+                leftPct: 0,
+                rightPct: 0,
+                topPct: 0,
+                bottomPct: 0
+              },
+              hasTransparency: false,
+              usedFallback: true,
+              error: error.message
+            };
+            console.log('📊 Using fallback bounds (full image)');
+            visibleBoundsCache = fallback;
+            visibleBoundsCacheKey = img.src;
+            return fallback;
+          }
+        }
+
+        function psGeneratePackImage(img, count){
+          try {
+            console.log('🎨 psGeneratePackImage start, count=' + count);
+            const sz=1200, cv=document.createElement('canvas'); cv.width=sz; cv.height=sz;
+            const cx=cv.getContext('2d'); cx.imageSmoothingEnabled=true; cx.imageSmoothingQuality='high';
+            cx.fillStyle='#FFF'; cx.fillRect(0,0,sz,sz);
+
+            console.log('🎨 Getting visible bounds (cached if available)');
+            const visibleBounds = psGetVisibleImageBounds(img);
+            console.log('🎨 Computing layout with aspect ' + visibleBounds.aspect.toFixed(3));
+            const positions = psComputeLayout(count, sz, visibleBounds.aspect);
+
+            console.log('🎨 Drawing ' + positions.length + ' product instances');
+            positions.forEach((p, idx) => {
+              cx.drawImage(
+                img,
+                visibleBounds.left,
+                visibleBounds.top,
+                visibleBounds.width,
+                visibleBounds.height,
+                p.x - p.w/2,
+                p.y - p.h/2,
+                p.w,
+                p.h
+              );
+            });
+
+            if (count > 1) {
+              console.log('🎨 Drawing badge');
+              psDrawBadge(cx, count, sz);
+            }
+            console.log('🎨 psGeneratePackImage complete for count=' + count);
+            return cv;
+          } catch (error) {
+            console.error('❌ psGeneratePackImage error:', error, 'count=' + count);
+            throw error;
+          }
+        }
+
+        function psMultipackInit() {
+          const imageInput = document.getElementById('mpImageInput');
+          const statusDiv = document.getElementById('mpStatus');
+          const gallery = document.getElementById('mpGallery');
+          const packCounts = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+          let currentImage = null;
+
+          if (!imageInput) return;
+
+          function showStatus(message, type) {
+            if (!statusDiv) return;
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = message;
+            statusDiv.style.display = 'block';
+          }
+
+          function generateAllPacks() {
+            if (!currentImage) {
+              console.error('❌ No current image');
+              showStatus('✗ Image not selected', 'error');
+              return;
+            }
+
+            showStatus('<span class="spinner"></span> Generating all 11 pack previews...', 'info');
+
+            setTimeout(() => {
+              try {
+                console.log('🎨 generateAllPacks start, processing ' + packCounts.length + ' counts');
+                packCounts.forEach(count => {
+                  console.log('🎨 Processing pack count ' + count);
+                  const canvasId = `mpCanvas-${count}`;
+                  const canvas = document.getElementById(canvasId);
+
+                  if (!canvas) {
+                    console.error('❌ Canvas not found: ' + canvasId);
+                    return;
+                  }
+
+                  const result = psGeneratePackImage(currentImage, count);
+                  const ctx = canvas.getContext('2d');
+                  ctx.drawImage(result, 0, 0);
+                  console.log('✅ Pack ' + count + ' rendered');
+                });
+
+                console.log('✅ generateAllPacks complete');
+                showStatus('✓ All 11 pack previews generated successfully', 'success');
+              } catch (error) {
+                console.error('❌ Generation error:', error);
+                showStatus(`✗ Error generating packs: ${error.message}`, 'error');
+              }
+            }, 100);
+          }
+
+          imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            showStatus(`<span class="spinner"></span> Loading "${file.name}"...`, 'info');
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+              const img = new Image();
+              img.onload = function() {
+                try {
+                  console.log('🖼️ Image element loaded, size: ' + img.width + '×' + img.height);
+                  currentImage = img;
+
+                  console.log('📊 Starting visible bounds analysis...');
+                  const bounds = psGetVisibleImageBounds(img);
+
+                  if (!bounds || typeof bounds.aspect !== 'number') {
+                    throw new Error('Invalid bounds object returned');
+                  }
+
+                  const fallbackNote = bounds.usedFallback ? '<br><strong style="color:#c62828">⚠️ Using fallback (full image)</strong>' : '';
+                  const errorNote = bounds.error ? `<br><strong style="color:#c62828">⚠️ Error:</strong> ${bounds.error}` : '';
+
+                  const diagnosticHTML = `
+                    ✓ Image loaded<br>
+                    <br>
+                    <strong>SOURCE:</strong> ${bounds.sourceW} × ${bounds.sourceH} |
+                    <strong>VISIBLE:</strong> ${bounds.width} × ${bounds.height} |
+                    <strong>ASPECT:</strong> ${fmtNumber(bounds.aspect, 3)}${fallbackNote}${errorNote}
+                  `;
+                  console.log('📊 Bounds analysis complete, showing diagnostic');
+                  showStatus(diagnosticHTML, 'success');
+                  console.log('🎨 Starting pack generation...');
+                  generateAllPacks();
+                } catch (error) {
+                  console.error('❌ Image load error:', error.message);
+                  console.error('   Stack:', error.stack);
+                  showStatus(`✗ Error processing image: ${error.message}`, 'error');
+                }
+              };
+              img.onerror = function() {
+                console.error('❌ Failed to decode image');
+                showStatus('✗ Failed to load image', 'error');
+              };
+              img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+          });
+        }
+
+        // Initialize multipack on page load
+        document.addEventListener('DOMContentLoaded', psMultipackInit);
     </script>
 </body>
 </html>
