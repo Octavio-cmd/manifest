@@ -702,6 +702,66 @@
                     <input type="text" id="capNotes" placeholder="10 Cases/PLT (4/6 Roll Pack)">
                 </div>
 
+                <!-- Shoe Fields (Optional) -->
+                <div style="background:#f0f8ff;padding:12px;border-radius:6px;margin-bottom:14px;border-left:4px solid #667eea;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                        <input type="checkbox" id="capIsShoe" style="cursor:pointer;width:16px;height:16px;">
+                        <label for="capIsShoe" style="cursor:pointer;margin:0;font-weight:700;">Este es un zapato</label>
+                    </div>
+
+                    <div id="shoeFields" style="display:none;">
+                        <div class="cap-grid-2" style="margin-bottom:10px;">
+                            <div>
+                                <label style="font-size:12px;">Tipo de Zapato</label>
+                                <select id="capShoeType">
+                                    <option value="">Selecciona tipo…</option>
+                                    <option value="Sneakers">Sneakers</option>
+                                    <option value="Running">Running</option>
+                                    <option value="Athletic">Athletic</option>
+                                    <option value="Basketball">Basketball</option>
+                                    <option value="Casual">Casual</option>
+                                    <option value="Dress Shoes">Dress Shoes</option>
+                                    <option value="Boots">Boots</option>
+                                    <option value="Ankle Boots">Ankle Boots</option>
+                                    <option value="Sandals">Sandals</option>
+                                    <option value="Heels">Heels</option>
+                                    <option value="Flats">Flats</option>
+                                    <option value="Loafers">Loafers</option>
+                                    <option value="Slip-On">Slip-On</option>
+                                    <option value="Clogs">Clogs</option>
+                                    <option value="Mules">Mules</option>
+                                    <option value="Wedges">Wedges</option>
+                                    <option value="Platform">Platform</option>
+                                    <option value="Kids Sneakers">Kids Sneakers</option>
+                                    <option value="Kids Boots">Kids Boots</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size:12px;">Grupo (Gender/Age)</label>
+                                <select id="capShoeGroup">
+                                    <option value="">Selecciona grupo…</option>
+                                    <option value="Men">Men</option>
+                                    <option value="Women">Women</option>
+                                    <option value="Boys">Boys</option>
+                                    <option value="Girls">Girls</option>
+                                    <option value="Unisex Kids">Unisex Kids</option>
+                                    <option value="Baby">Baby</option>
+                                    <option value="Unisex Adult">Unisex Adult</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label style="font-size:12px;">Categoría eBay (auto-mapeado)</label>
+                            <input type="text" id="capEbayCategory" placeholder="(se rellenará automáticamente)" readonly style="background:#f5f5f5;color:#666;">
+                        </div>
+                        <div style="margin-top:10px;">
+                            <label style="font-size:12px;">Notas del Zapato</label>
+                            <input type="text" id="capShoeNotes" placeholder="Ej: Leather upper, rubber sole">
+                        </div>
+                    </div>
+                </div>
+
                 <div style="display:flex;gap:10px;flex-wrap:wrap;">
                     <button type="button" id="capSaveBtn" style="flex:1 1 160px;">💾 Guardar y Siguiente</button>
                     <button type="button" id="capClearBtn" style="flex:0 1 120px;background:#6c757d;">Limpiar</button>
@@ -1385,7 +1445,7 @@
             var plts = capNum('capPallets');
             var totalPieces = pcs * cases * plts;
 
-            return {
+            var row = {
                 upc: capVal('capUpc'),
                 item: capVal('capItem'),
                 sku: capVal('capSku'),
@@ -1404,6 +1464,16 @@
                 cases_plt: cases || '',
                 total_pieces: totalPieces || ''
             };
+
+            // Conditionally include shoe fields only if shoe checkbox is checked
+            if (capEl('capIsShoe').checked) {
+                row.shoe_type = capVal('capShoeType');
+                row.shoe_group = capVal('capShoeGroup');
+                row.ebay_category = capVal('capEbayCategory');
+                row.shoe_notes = capVal('capShoeNotes');
+            }
+
+            return row;
         }
 
         function capShowStatus(cls, html) {
@@ -1469,9 +1539,18 @@
                 'capPallets', 'capRetailUnit', 'capPackDesc', 'capRetail',
                 'capSellPrice', 'capCost', 'capLbs', 'capDims', 'capPhotos',
                 'capNotes', 'capHeight'];
-            for (var i = 0; i < fields.length; i++) {
-                var e = capEl(fields[i]);
-                if (e) { e.value = ''; delete e.dataset.touched; }
+            var shoeFields = ['capIsShoe', 'capShoeType', 'capShoeGroup', 'capEbayCategory', 'capShoeNotes'];
+            var allFields = fields.concat(shoeFields);
+            for (var i = 0; i < allFields.length; i++) {
+                var e = capEl(allFields[i]);
+                if (e) {
+                    if (e.type === 'checkbox') {
+                        e.checked = false;
+                    } else {
+                        e.value = '';
+                    }
+                    delete e.dataset.touched;
+                }
             }
             capEl('capCalc').innerHTML = 'Llena el conteo para ver los cálculos';
             capEl('capUpc').focus();
@@ -1623,6 +1702,71 @@
                     capEl('capDims').value = '40x48x' + h;
                 }
             });
+
+            // Shoe fields mapping
+            var shoeEbayMapping = {
+                'Sneakers/mens': 15709, 'Sneakers/womens': 95672, 'Sneakers/boys': 57929,
+                'Sneakers/girls': 57974, 'Sneakers/unisex_kids': 155202, 'Sneakers/baby': 147285, 'Sneakers/unisex': 15709,
+                'Running/mens': 15709, 'Running/womens': 95672, 'Running/boys': 57929,
+                'Running/girls': 57974, 'Running/unisex_kids': 155202, 'Running/baby': 147285, 'Running/unisex': 15709,
+                'Athletic/mens': 15709, 'Athletic/womens': 95672, 'Athletic/boys': 57929,
+                'Athletic/girls': 57974, 'Athletic/unisex_kids': 155202, 'Athletic/baby': 147285, 'Athletic/unisex': 15709,
+                'Basketball/mens': 15709, 'Basketball/womens': 95672, 'Basketball/boys': 57929,
+                'Basketball/girls': 57974, 'Basketball/unisex_kids': 155202, 'Basketball/baby': 147285, 'Basketball/unisex': 15709,
+                'Casual/mens': 24087, 'Casual/womens': 45333, 'Casual/boys': 57929,
+                'Casual/girls': 57974, 'Casual/unisex_kids': 155202, 'Casual/unisex': 53548,
+                'Dress Shoes/mens': 53120, 'Dress Shoes/womens': 55793, 'Dress Shoes/boys': 57929,
+                'Dress Shoes/girls': 57974, 'Dress Shoes/unisex_kids': 155202, 'Dress Shoes/unisex': 53120,
+                'Boots/mens': 11498, 'Boots/womens': 53557, 'Boots/boys': 57929,
+                'Boots/girls': 57974, 'Boots/unisex_kids': 155202, 'Boots/unisex': 11498,
+                'Ankle Boots/mens': 11498, 'Ankle Boots/womens': 53557, 'Ankle Boots/boys': 57929,
+                'Ankle Boots/girls': 57974, 'Ankle Boots/unisex_kids': 155202, 'Ankle Boots/unisex': 53557,
+                'Sandals/mens': 11504, 'Sandals/womens': 62107, 'Sandals/boys': 57929,
+                'Sandals/girls': 57974, 'Sandals/unisex_kids': 155202, 'Sandals/unisex': 11504,
+                'Heels/mens': 53120, 'Heels/womens': 55793, 'Heels/boys': 57929,
+                'Heels/girls': 57974, 'Heels/unisex_kids': 155202, 'Heels/unisex': 55793,
+                'Flats/mens': 24087, 'Flats/womens': 45333, 'Flats/boys': 57929,
+                'Flats/girls': 57974, 'Flats/unisex_kids': 155202, 'Flats/unisex': 45333,
+                'Loafers/mens': 53120, 'Loafers/womens': 45333, 'Loafers/boys': 57929,
+                'Loafers/girls': 57974, 'Loafers/unisex_kids': 155202, 'Loafers/unisex': 24087,
+                'Slip-On/mens': 24087, 'Slip-On/womens': 45333, 'Slip-On/boys': 57929,
+                'Slip-On/girls': 57974, 'Slip-On/unisex_kids': 155202, 'Slip-On/unisex': 24087,
+                'Clogs/mens': 24087, 'Clogs/womens': 53548, 'Clogs/boys': 57929,
+                'Clogs/girls': 57974, 'Clogs/unisex_kids': 155202, 'Clogs/unisex': 53548,
+                'Mules/mens': 24087, 'Mules/womens': 45333, 'Mules/boys': 57929,
+                'Mules/girls': 57974, 'Mules/unisex_kids': 155202, 'Mules/unisex': 53548,
+                'Wedges/mens': 24087, 'Wedges/womens': 55793, 'Wedges/boys': 57929,
+                'Wedges/girls': 57974, 'Wedges/unisex_kids': 155202, 'Wedges/unisex': 55793,
+                'Platform/mens': 24087, 'Platform/womens': 55793, 'Platform/boys': 57929,
+                'Platform/girls': 57974, 'Platform/unisex_kids': 155202, 'Platform/unisex': 95672
+            };
+
+            function capUpdateEbayCategory() {
+                var shoeType = capVal('capShoeType');
+                var shoeGroup = capVal('capShoeGroup');
+                if (shoeType && shoeGroup) {
+                    var key = shoeType + '/' + shoeGroup.toLowerCase().replace(/ /g, '_');
+                    var catId = shoeEbayMapping[key] || '';
+                    capEl('capEbayCategory').value = catId;
+                } else {
+                    capEl('capEbayCategory').value = '';
+                }
+            }
+
+            function capToggleShoeFields() {
+                var isShoe = capEl('capIsShoe').checked;
+                capEl('shoeFields').style.display = isShoe ? 'block' : 'none';
+                if (!isShoe) {
+                    capEl('capShoeType').value = '';
+                    capEl('capShoeGroup').value = '';
+                    capEl('capEbayCategory').value = '';
+                    capEl('capShoeNotes').value = '';
+                }
+            }
+
+            capBind('capIsShoe', 'change', capToggleShoeFields);
+            capBind('capShoeType', 'change', capUpdateEbayCategory);
+            capBind('capShoeGroup', 'change', capUpdateEbayCategory);
 
             capBind('capSkuBtn', 'click', capGenerateSku);
             capBind('capSkuBtn', 'touchend', capGenerateSku);
