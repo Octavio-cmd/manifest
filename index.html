@@ -525,9 +525,9 @@
 
                 <!-- Local File Tab -->
                 <div id="tab-local" class="tab-content active">
-                    <label>Archivo (Excel, CSV o PDF)</label>
+                    <label>Archivo (CSV o XLSX)</label>
                     <div class="file-input-wrapper">
-                        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv,.pdf">
+                        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
                         <label for="fileInput" class="file-input-label">
                             📁 Seleccionar Archivo
                         </label>
@@ -852,10 +852,38 @@
                     Aquí aparecerá la vista previa cuando subas un archivo
                 </div>
             </div>
+
+            <!-- SECTION 4: SHEET SELECTION (Phase 1B) -->
+            <div id="scr-manifest-sheet-select" class="section full-width" style="display: none;">
+                <h2><span class="icon">📋</span> Seleccionar Hoja (XLSX)</h2>
+                <p style="color: #666; margin-bottom: 20px;">Este archivo XLSX tiene múltiples hojas. Elige la que contiene el manifest:</p>
+                <div id="sheetButtonsContainer" style="display: flex; flex-direction: column; gap: 10px;"></div>
+                <button class="button-secondary" onclick="resetUpload()" style="margin-top: 20px;">Cancelar</button>
+            </div>
+
+            <!-- SECTION 5: HEADER DETECTION (Phase 1B) -->
+            <div id="scr-manifest-header-detect" class="section full-width" style="display: none;">
+                <h2><span class="icon">🔍</span> Detectar Fila de Encabezados</h2>
+                <div style="background: #eef1ff; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+                    <p><strong>Fila detectada:</strong> <span id="detectedHeaderRowNum" style="color: #667eea; font-weight: bold;">—</span></p>
+                    <div id="headerPreviewContainer" style="margin-top: 15px; overflow-x: auto;">
+                        <table class="preview-table" id="headerPreviewTable" style="margin-top: 0;">
+                            <thead id="headerPreviewHead"></thead>
+                            <tbody id="headerPreviewBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    <button onclick="confirmDetectedHeader()" style="background: #28a745;">✅ Usar esta fila</button>
+                    <button class="button-secondary" onclick="showManualHeaderSelection()">✏️ Otra fila</button>
+                    <button class="button-secondary" onclick="resetUpload()">Cancelar</button>
+                </div>
+            </div>
         </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.min.js"></script>
     <script src="https://apis.google.com/js/api.js"></script>
     <script>
         const API_BASE = 'https://savvy-ebay-prices-production.up.railway.app';
@@ -1937,7 +1965,7 @@
                             <div style="color: #383d41; font-size: 14px;">Precisión</div>
                         </div>
                     </div>
-                    
+
                     <h4 style="margin-top: 20px; margin-bottom: 10px;">Productos NO Encontrados:</h4>
                     <div style="background: #f8f9fa; padding: 10px; border-radius: 4px; max-height: 150px; overflow-y: auto;">
                         ${notFound > 0 ? scannedProducts.filter(p => !p.found).map(p => `<div style="padding: 5px; border-bottom: 1px solid #ddd;">❌ ${p.code}</div>`).join('') : '<p style="color: #999;">Todos los productos fueron encontrados ✅</p>'}
@@ -1946,6 +1974,390 @@
             `;
             results.style.display = 'block';
         }
+
+        // ===== PHASE 1B: ADAPTIVE MANIFEST IMPORTER =====
+
+        const SEMANTIC_FIELD_ALIASES = {
+            upc: ['UPC', 'UPC NUMBER', 'UPC #', 'UPC/NDC', 'GTIN', 'EAN', 'BARCODE', 'UPC CODE', 'ITEM NO.'],
+            sku: ['SKU', 'ITEM NUMBER', 'ITEM #', 'PRODUCT CODE', 'PRODUCT #'],
+            title: ['TITLE', 'DESCRIPTION', 'PRODUCT NAME', 'PRODUCT DESCRIPTION', 'DESC', 'NAME'],
+            brand: ['BRAND', 'MANUFACTURER', 'MFR', 'VENDOR', 'SUPPLIER'],
+            category: ['CATEGORY', 'DEPT', 'DEPARTMENT', 'CATEGORY CODE'],
+            expectedQty: ['QUANTITY', 'QTY', 'QTY EXPECTED', 'EXPECTED QTY', 'UNITS', 'COUNT'],
+            palletId: ['PALLET', 'PALLET ID', 'PALLET #', 'PALLET NUMBER'],
+            unitRetail: ['UNIT RETAIL', 'RETAIL UNIT', 'UNIT PRICE', 'MSRP', 'SUGG RETAIL'],
+            extendedRetail: ['EXTENDED RETAIL', 'TOTAL RETAIL', 'RETAIL TOTAL', 'EXTENDED PRICE']
+        };
+
+        function normalizeHeaderName(name) {
+            return String(name || '')
+                .toUpperCase()
+                .trim()
+                .replace(/[^\w\s]/g, '');
+        }
+
+        function scoreRowAsHeader(row) {
+            let score = 0;
+            const normalizedRow = row.map(normalizeHeaderName);
+
+            for (const [field, aliases] of Object.entries(SEMANTIC_FIELD_ALIASES)) {
+                for (const alias of aliases) {
+                    const normalized = normalizeHeaderName(alias);
+                    if (normalizedRow.some(h => h === normalized)) {
+                        score += 10;
+                        break;
+                    }
+                }
+            }
+
+            const hasIdentifier = normalizedRow.some(h =>
+                ['UPC', 'UPCNUMBER', 'SKU', 'ITEMNUMBER', 'TITLE', 'DESCRIPTION'].some(id => h.includes(id))
+            );
+            const hasQuantity = normalizedRow.some(h => h.includes('QUANTITY') || h.includes('QTY'));
+
+            if (hasIdentifier && hasQuantity) score += 20;
+
+            return score;
+        }
+
+        function detectHeaderRow(rawRows) {
+            let bestRow = 0;
+            let bestScore = 0;
+
+            for (let i = 0; i < Math.min(50, rawRows.length); i++) {
+                const row = rawRows[i];
+                if (!row || row.filter(Boolean).length === 0) continue;
+
+                const score = scoreRowAsHeader(row);
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestRow = i;
+                }
+            }
+
+            return { rowIndex: bestRow, score: bestScore };
+        }
+
+        let currentRawRows = [];
+        let currentWorkbook = null;
+        let currentSheetName = null;
+
+        function handleCsvFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const csv = e.target.result;
+                const lines = csv.trim().split(/\r?\n/).filter(l => l.trim());
+                currentRawRows = lines.map(line => {
+                    const row = [];
+                    let field = '';
+                    let quoted = false;
+                    for (let j = 0; j < line.length; j++) {
+                        const char = line[j];
+                        if (char === '"') quoted = !quoted;
+                        else if (char === ',' && !quoted) {
+                            row.push(field.trim());
+                            field = '';
+                        } else {
+                            field += char;
+                        }
+                    }
+                    row.push(field.trim());
+                    return row;
+                });
+                proceedWithHeaderDetection();
+            };
+            reader.readAsText(file);
+        }
+
+        function handleXlsxFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    currentWorkbook = XLSX.read(e.target.result, { type: 'array' });
+                    const sheetNames = currentWorkbook.SheetNames.filter(name => {
+                        const sheet = currentWorkbook.Sheets[name];
+                        return sheet && Object.keys(sheet).length > 1;
+                    });
+
+                    if (sheetNames.length === 1) {
+                        currentSheetName = sheetNames[0];
+                        selectSheet(sheetNames[0]);
+                    } else if (sheetNames.length > 1) {
+                        renderSheetSelection(sheetNames);
+                    } else {
+                        alert('❌ No se encontraron hojas con datos');
+                    }
+                } catch (error) {
+                    alert('❌ Error leyendo archivo XLSX: ' + error.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function renderSheetSelection(sheetNames) {
+            document.getElementById('scr-manifest-sheet-select').style.display = 'block';
+            const container = document.getElementById('sheetButtonsContainer');
+            container.innerHTML = sheetNames.map(name =>
+                `<button onclick="selectSheet('${name}')" style="background: #667eea; text-align: left; padding: 15px;">📄 ${escapeHtml(name)}</button>`
+            ).join('');
+        }
+
+        function selectSheet(sheetName) {
+            currentSheetName = sheetName;
+            const worksheet = currentWorkbook.Sheets[sheetName];
+            const aoa = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+            currentRawRows = aoa.filter(row => row.filter(Boolean).length > 0);
+            document.getElementById('scr-manifest-sheet-select').style.display = 'none';
+            proceedWithHeaderDetection();
+        }
+
+        function proceedWithHeaderDetection() {
+            const detection = detectHeaderRow(currentRawRows);
+            renderHeaderDetectionPreview(detection.rowIndex);
+        }
+
+        function renderHeaderDetectionPreview(headerRowIndex) {
+            document.getElementById('scr-manifest-header-detect').style.display = 'block';
+            document.getElementById('detectedHeaderRowNum').textContent = headerRowIndex + 1;
+
+            const headerRow = currentRawRows[headerRowIndex] || [];
+            const previewHead = document.getElementById('headerPreviewHead');
+            const previewBody = document.getElementById('headerPreviewBody');
+
+            previewHead.innerHTML = '<tr>' + headerRow.map(h => `<th>${escapeHtml(h)}</th>`).join('') + '</tr>';
+
+            const previewRows = currentRawRows.slice(headerRowIndex + 1, headerRowIndex + 6);
+            previewBody.innerHTML = previewRows.map(row =>
+                '<tr>' + headerRow.map((h, idx) => `<td>${escapeHtml(row[idx] || '')}</td>`).join('') + '</tr>'
+            ).join('');
+        }
+
+        function showManualHeaderSelection() {
+            alert('📌 Selecciona la fila de encabezados. Esta función será implementada próximamente.');
+        }
+
+        function escapeHtml(str) {
+            return String(str == null ? '' : str).replace(/[&<>"']/g, c => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            }[c]));
+        }
+
+        function confirmDetectedHeader() {
+            const headerRowIndex = parseInt(document.getElementById('detectedHeaderRowNum').textContent) - 1;
+            const headerRow = currentRawRows[headerRowIndex];
+            const dataRows = currentRawRows.slice(headerRowIndex + 1);
+
+            const manifestSession = {
+                version: 2,
+                id: 'ms_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
+                fileName: currentFile || 'manifest.xlsx',
+                fileType: currentFile && currentFile.endsWith('.xlsx') ? 'xlsx' : 'csv',
+                sheetName: currentSheetName || null,
+                uploadedAt: new Date().toISOString(),
+                headerRowIndex: headerRowIndex,
+                rawHeaders: headerRow,
+                mapping: {},
+                rows: dataRows.map((row, idx) => ({
+                    rowId: idx,
+                    sourceRowNumber: headerRowIndex + 2 + idx,
+                    original: Object.fromEntries(headerRow.map((h, i) => [h, row[i] || ''])),
+                    normalized: {
+                        upc: '', sku: '', title: '', brand: '', category: '',
+                        expectedQty: null, palletId: '', unitRetail: null, extendedRetail: null
+                    },
+                    receivedQty: 0,
+                    status: 'pending',
+                    notes: ''
+                })),
+                status: 'mapping',
+                receivedRecords: []
+            };
+
+            showColumnMappingV2(manifestSession);
+        }
+
+        function showColumnMappingV2(manifestSession) {
+            document.getElementById('scr-manifest-header-detect').style.display = 'none';
+            const fields = ['upc', 'sku', 'title', 'brand', 'category', 'expectedQty', 'palletId', 'unitRetail', 'extendedRetail'];
+            const fieldLabels = {
+                upc: 'UPC',
+                sku: 'SKU',
+                title: 'Título',
+                brand: 'Marca',
+                category: 'Categoría',
+                expectedQty: 'Cantidad Esperada',
+                palletId: 'ID de Paleta',
+                unitRetail: 'Retail Unitario',
+                extendedRetail: 'Retail Extendido'
+            };
+
+            let html = '<div class="section full-width"><h2>📍 Mapeo de Columnas</h2>';
+            html += '<p style="color: #666; margin-bottom: 20px;">Selecciona qué columna del archivo corresponde a cada campo:</p>';
+
+            fields.forEach(field => {
+                const suggestions = SEMANTIC_FIELD_ALIASES[field] || [];
+                const matched = manifestSession.rawHeaders.find(h =>
+                    suggestions.some(s => normalizeHeaderName(s) === normalizeHeaderName(h))
+                );
+
+                html += `<div style="margin-bottom: 15px;">
+                    <label>${fieldLabels[field]}</label>
+                    <select id="map-${field}" onchange="updateMappingV2('${field}')" style="width:100%;padding:10px;border:2px solid #dee2e6;border-radius:6px;">
+                        <option value="">— Sin asignar —</option>
+                        ${manifestSession.rawHeaders.map(h => `<option value="${escapeHtml(h)}" ${matched && matched === h ? 'selected' : ''}>${escapeHtml(h)}</option>`).join('')}
+                    </select>
+                </div>`;
+            });
+
+            html += '<div style="background: #fff8e6; padding: 12px; border-radius: 6px; margin: 20px 0; font-size: 14px;">';
+            html += '✓ <strong>Requerido:</strong> Al menos uno de UPC, SKU o Título';
+            html += '</div>';
+
+            html += `<div class="action-buttons">
+                <button onclick="submitManifestMappingV2(${JSON.stringify(manifestSession).replace(/"/g, '&quot;')})">Continuar</button>
+                <button class="button-secondary" onclick="resetUpload()">Cancelar</button>
+            </div></div>`;
+
+            document.body.insertAdjacentHTML('beforeend', `<div id="tempMappingScreen" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:999;display:flex;align-items:center;justify-content:center;"><div style="background:white;border-radius:12px;padding:30px;max-width:600px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">${html}</div></div>`);
+
+            window.currentManifestSessionV2 = manifestSession;
+        }
+
+        function updateMappingV2(field) {
+            const value = document.getElementById('map-' + field).value;
+            if (window.currentManifestSessionV2) {
+                window.currentManifestSessionV2.mapping[field] = value;
+            }
+        }
+
+        function submitManifestMappingV2(manifestSessionStr) {
+            const manifestSession = typeof manifestSessionStr === 'string'
+                ? JSON.parse(manifestSessionStr.replace(/&quot;/g, '"'))
+                : manifestSessionStr;
+
+            const hasUpc = !!manifestSession.mapping.upc;
+            const hasSku = !!manifestSession.mapping.sku;
+            const hasTitle = !!manifestSession.mapping.title;
+
+            if (!hasUpc && !hasSku && !hasTitle) {
+                alert('❌ Debe asignar al menos UPC, SKU o Título');
+                return;
+            }
+
+            normalizeManifestRowsV2(manifestSession);
+            saveManifestSessionToStorageV2(manifestSession);
+
+            document.getElementById('tempMappingScreen')?.remove();
+            document.getElementById('scr-manifest-header-detect').style.display = 'none';
+
+            renderManifestSummaryV2(manifestSession);
+        }
+
+        function normalizeManifestRowsV2(manifestSession) {
+            manifestSession.rows.forEach(row => {
+                const m = manifestSession.mapping;
+
+                if (m.upc) row.normalized.upc = String(row.original[m.upc] || '').trim();
+                if (m.sku) row.normalized.sku = String(row.original[m.sku] || '').trim();
+                if (m.title) row.normalized.title = String(row.original[m.title] || '').trim();
+                if (m.brand) row.normalized.brand = String(row.original[m.brand] || '').trim();
+                if (m.category) row.normalized.category = String(row.original[m.category] || '').trim();
+                if (m.palletId) row.normalized.palletId = String(row.original[m.palletId] || '').trim();
+
+                if (m.expectedQty) {
+                    const qtyStr = String(row.original[m.expectedQty] || '').trim();
+                    const qtyNum = parseInt(qtyStr, 10);
+                    row.normalized.expectedQty = (!isNaN(qtyNum) && qtyNum > 0) ? qtyNum : null;
+                }
+
+                if (m.unitRetail) {
+                    const retailStr = String(row.original[m.unitRetail] || '').trim();
+                    const retailNum = parseFloat(retailStr);
+                    row.normalized.unitRetail = (!isNaN(retailNum) && retailNum > 0) ? retailNum : null;
+                }
+
+                if (m.extendedRetail) {
+                    const extStr = String(row.original[m.extendedRetail] || '').trim();
+                    const extNum = parseFloat(extStr);
+                    row.normalized.extendedRetail = (!isNaN(extNum) && extNum > 0) ? extNum : null;
+                }
+            });
+        }
+
+        function renderManifestSummaryV2(manifestSession) {
+            const container = document.getElementById('previewContainer');
+            const table = document.getElementById('previewTable');
+            const headerRow = table.querySelector('thead tr');
+            const tbody = table.querySelector('tbody');
+
+            const headers = manifestSession.rawHeaders;
+            headerRow.innerHTML = headers.map(h => `<th>${escapeHtml(h)}</th>`).join('');
+
+            const previewRows = manifestSession.rows.slice(0, 10);
+            tbody.innerHTML = previewRows.map(row =>
+                '<tr>' + headers.map(h => `<td>${escapeHtml(row.original[h] || '')}</td>`).join('') + '</tr>'
+            ).join('');
+
+            document.getElementById('rowCount').textContent =
+                `📊 Total: ${manifestSession.rows.length} filas${manifestSession.rows.length > 10 ? ' (primeras 10 mostradas)' : ''}`;
+            document.getElementById('noPreview').style.display = 'none';
+            container.style.display = 'block';
+        }
+
+        function saveManifestSessionToStorageV2(manifestSession) {
+            try {
+                localStorage.setItem('inventory_manifest_beta_session_v2', JSON.stringify(manifestSession));
+            } catch (e) {
+                console.warn('localStorage full or unavailable:', e);
+            }
+        }
+
+        function loadManifestSessionFromStorageV2() {
+            try {
+                const stored = localStorage.getItem('inventory_manifest_beta_session_v2');
+                return stored ? JSON.parse(stored) : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // Update initial DOMContentLoaded to try V2 first, then V1
+        const originalParseManifest = window.parseManifest;
+        window.parseManifest = async function() {
+            const fileInput = document.getElementById('fileInput');
+            const statusDiv = document.getElementById('parseStatus');
+
+            if (!fileInput.files[0]) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Selecciona un archivo';
+                return;
+            }
+
+            const file = fileInput.files[0];
+            currentFile = file.name;
+
+            statusDiv.className = 'status info';
+            statusDiv.innerHTML = '<span class="spinner"></span>Procesando archivo...';
+            statusDiv.style.display = 'block';
+
+            try {
+                if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                    handleXlsxFile(file);
+                } else if (file.name.endsWith('.csv')) {
+                    handleCsvFile(file);
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = '❌ Formato no soportado. Usa CSV o XLSX';
+                }
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `❌ Error: ${error.message}`;
+            }
+        };
     </script>
 </body>
 </html>
