@@ -2038,6 +2038,241 @@
             return { rowIndex: bestRow, score: bestScore };
         }
 
+        // ===== PHASE 1: UNIVERSAL MANIFEST IMPORTER =====
+
+        // Session storage keys
+        const MANIFEST_SESSION_V3_KEY = 'inventory_manifest_beta_session_v3';
+
+        // File type detection
+        function detectManifestFileType(file) {
+            const ext = file.name.toLowerCase().split('.').pop();
+            const mimeType = file.type || '';
+
+            const typeMap = {
+                'csv': 'csv',
+                'tsv': 'tsv',
+                'txt': 'txt',
+                'xlsx': 'xlsx',
+                'xls': 'xls',
+                'ods': 'ods',
+                'pdf': 'pdf',
+            };
+
+            return typeMap[ext] || 'unknown';
+        }
+
+        // Format-specific dependency checking
+        function checkManifestDependenciesForType(fileType) {
+            const checks = {
+                csv: { papa: true, xlsx: false, required: ['papa'] },
+                tsv: { papa: true, xlsx: false, required: ['papa'] },
+                txt: { papa: true, xlsx: false, required: ['papa'] },
+                xlsx: { papa: false, xlsx: true, required: ['xlsx'] },
+                xls: { papa: false, xlsx: true, required: ['xlsx'] },
+                ods: { papa: false, xlsx: true, required: ['xlsx'] },
+                pdf: { papa: false, xlsx: false, required: [] },
+            };
+
+            const config = checks[fileType] || { required: [] };
+            const missing = [];
+
+            if (config.required.includes('papa') && typeof Papa === 'undefined') {
+                missing.push('Papa Parse 5.4.1');
+            }
+            if (config.required.includes('xlsx') && typeof XLSX === 'undefined') {
+                missing.push('SheetJS 0.18.5');
+            }
+
+            return { available: missing.length === 0, missing };
+        }
+
+        // Canonical import result structure
+        async function importManifestFile(file) {
+            const fileType = detectManifestFileType(file);
+            const depCheck = checkManifestDependenciesForType(fileType);
+
+            if (!depCheck.available) {
+                return {
+                    success: false,
+                    error: `Missing dependencies: ${depCheck.missing.join(', ')}`,
+                    fileType,
+                    fileName: file.name
+                };
+            }
+
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+
+                reader.onload = (e) => {
+                    try {
+                        let result = {
+                            success: true,
+                            fileType,
+                            fileName: file.name,
+                            sourceSections: [],
+                            sourceRowMap: {},
+                            warnings: []
+                        };
+
+                        if (fileType === 'csv' || fileType === 'tsv') {
+                            const delimiter = fileType === 'tsv' ? '\t' : ',';
+                            const lines = e.target.result.split(/\r?\n/);
+                            const rows = [];
+
+                            lines.forEach((line, idx) => {
+                                if (!line.trim()) return;
+                                const cells = line.split(delimiter).map(c => c.trim());
+                                rows.push(cells);
+                            });
+
+                            const sourceRowMap = {};
+                            let mapIdx = 0;
+                            lines.forEach((line, origIdx) => {
+                                if (line.trim()) {
+                                    sourceRowMap[mapIdx] = origIdx + 1;
+                                    mapIdx++;
+                                }
+                            });
+
+                            result.sourceSections = [{
+                                name: 'Sheet1',
+                                data: rows,
+                                rowCount: rows.length
+                            }];
+                            result.sourceRowMap = sourceRowMap;
+                        } else if (fileType === 'xlsx' || fileType === 'xls' || fileType === 'ods') {
+                            const workbook = XLSX.read(e.target.result, { type: 'array' });
+                            const sheets = workbook.SheetNames.filter(name => {
+                                const sheet = workbook.Sheets[name];
+                                return sheet && Object.keys(sheet).length > 1;
+                            });
+
+                            if (sheets.length === 0) {
+                                result.success = false;
+                                result.error = 'No sheets with data found';
+                            } else {
+                                result.sourceSections = sheets.map(sheetName => {
+                                    const worksheet = workbook.Sheets[sheetName];
+                                    const aoa = XLSX.utils.sheet_to_json(worksheet, {
+                                        header: 1,
+                                        defval: ''
+                                    });
+
+                                    const sourceRowMap = {};
+                                    let mapIdx = 0;
+                                    aoa.forEach((row, origIdx) => {
+                                        if (row.filter(Boolean).length > 0) {
+                                            sourceRowMap[mapIdx] = origIdx + 1;
+                                            mapIdx++;
+                                        }
+                                    });
+
+                                    const filtered = aoa.filter(row => row.filter(Boolean).length > 0);
+
+                                    return {
+                                        name: sheetName,
+                                        data: filtered,
+                                        rowCount: filtered.length,
+                                        workbook: workbook
+                                    };
+                                });
+                            }
+                        } else if (fileType === 'pdf') {
+                            result.warnings.push('PDF parsing not yet implemented - awaiting PDF library');
+                            result.success = false;
+                            result.error = 'PDF support pending';
+                        } else {
+                            result.success = false;
+                            result.error = 'Unsupported file format: ' + fileType;
+                        }
+
+                        resolve(result);
+                    } catch (err) {
+                        resolve({
+                            success: false,
+                            error: err.message,
+                            fileType,
+                            fileName: file.name
+                        });
+                    }
+                };
+
+                if (fileType === 'xlsx' || fileType === 'xls' || fileType === 'ods') {
+                    reader.readAsArrayBuffer(file);
+                } else {
+                    reader.readAsText(file);
+                }
+            });
+        }
+
+        // Display import review screen
+        function showManifestImportReview(importResult) {
+            if (!importResult.success) {
+                alert('❌ ' + importResult.error);
+                return;
+            }
+
+            // If single sheet, proceed directly to header detection
+            if (importResult.sourceSections.length === 1) {
+                proceedToHeaderDetectionFromImport(importResult, importResult.sourceSections[0]);
+            } else {
+                // Show sheet selection screen
+                showManifestSheetSelection(importResult);
+            }
+        }
+
+        // Sheet selection UI for multi-sheet workbooks
+        function showManifestSheetSelection(importResult) {
+            const container = document.getElementById('scr-manifest-sheet-select');
+            if (!container) return;
+
+            const sheetsDiv = document.getElementById('sheetButtonsContainer');
+            sheetsDiv.innerHTML = importResult.sourceSections.map(section =>
+                `<button onclick="proceedToHeaderDetectionFromImport_v3('${section.name}')" style="background: #667eea; text-align: left; padding: 15px;">📄 ${escapeHtml(section.name)}</button>`
+            ).join('');
+
+            container.style.display = 'block';
+        }
+
+        // Proceed to header detection with selected sheet
+        window.proceedToHeaderDetectionFromImport_v3 = function(sheetName) {
+            // This will be set by showManifestImportReview
+            if (window.currentImportResult && window.currentImportResult.sourceSections) {
+                const section = window.currentImportResult.sourceSections.find(s => s.name === sheetName);
+                if (section) {
+                    document.getElementById('scr-manifest-sheet-select').style.display = 'none';
+                    proceedToHeaderDetectionFromImport(window.currentImportResult, section);
+                }
+            }
+        };
+
+        function proceedToHeaderDetectionFromImport(importResult, section) {
+            currentRawRows = section.data;
+            currentSheetName = section.name;
+
+            const detection = detectHeaderRow(currentRawRows);
+            renderHeaderDetectionPreview(detection.rowIndex);
+        }
+
+        // Session v3 storage functions
+        function saveManifestSessionToStorageV3(manifestSession) {
+            try {
+                localStorage.setItem(MANIFEST_SESSION_V3_KEY, JSON.stringify(manifestSession));
+            } catch (e) {
+                console.warn('Failed to save to localStorage v3:', e);
+            }
+        }
+
+        function loadManifestSessionFromStorageV3() {
+            try {
+                const stored = localStorage.getItem(MANIFEST_SESSION_V3_KEY);
+                return stored ? JSON.parse(stored) : null;
+            } catch (e) {
+                console.warn('Failed to load from localStorage v3:', e);
+                return null;
+            }
+        }
+
         let currentRawRows = [];
         let currentWorkbook = null;
         let currentSheetName = null;
@@ -2250,6 +2485,7 @@
 
             normalizeManifestRowsV2(manifestSession);
             saveManifestSessionToStorageV2(manifestSession);
+            saveManifestSessionToStorageV3(manifestSession);
 
             document.getElementById('tempMappingScreen')?.remove();
             document.getElementById('scr-manifest-header-detect').style.display = 'none';
@@ -2344,19 +2580,22 @@
             statusDiv.innerHTML = '<span class="spinner"></span>Procesando archivo...';
             statusDiv.style.display = 'block';
 
-            try {
-                if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-                    handleXlsxFile(file);
-                } else if (file.name.endsWith('.csv')) {
-                    handleCsvFile(file);
+            importManifestFile(file).then(result => {
+                statusDiv.style.display = 'none';
+
+                if (result.success) {
+                    window.currentImportResult = result;
+                    showManifestImportReview(result);
                 } else {
                     statusDiv.className = 'status error';
-                    statusDiv.textContent = '❌ Formato no soportado. Usa CSV o XLSX';
+                    statusDiv.textContent = '❌ ' + result.error;
+                    statusDiv.style.display = 'block';
                 }
-            } catch (error) {
+            }).catch(error => {
                 statusDiv.className = 'status error';
-                statusDiv.textContent = `❌ Error: ${error.message}`;
-            }
+                statusDiv.textContent = '❌ Error: ' + error.message;
+                statusDiv.style.display = 'block';
+            });
         };
     </script>
 </body>
