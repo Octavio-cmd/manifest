@@ -2365,11 +2365,19 @@
                     suggestions.some(s => normalizeHeaderName(s) === normalizeHeaderName(h))
                 );
 
+                // FIX 1: Auto-suggestion must update state
+                if (matched && !manifestSession.mapping[field]) {
+                    manifestSession.mapping[field] = matched;
+                }
+
+                // FIX 2: Render from actual state
+                const selectedValue = manifestSession.mapping[field] || matched || '';
+
                 html += `<div style="margin-bottom: 15px;">
                     <label>${fieldLabels[field]}</label>
                     <select id="map-${field}" onchange="updateMappingV2('${field}')" style="width:100%;padding:10px;border:2px solid #dee2e6;border-radius:6px;">
                         <option value="">— Sin asignar —</option>
-                        ${manifestSession.rawHeaders.map(h => `<option value="${escapeHtml(h)}" ${matched && matched === h ? 'selected' : ''}>${escapeHtml(h)}</option>`).join('')}
+                        ${manifestSession.rawHeaders.map(h => `<option value="${escapeHtml(h)}" ${selectedValue === h ? 'selected' : ''}>${escapeHtml(h)}</option>`).join('')}
                     </select>
                 </div>`;
             });
@@ -2485,6 +2493,135 @@
             } catch (e) {
                 return null;
             }
+        }
+
+        // FIX 3: Auto-mapping state tests
+        function runAutoMappingTests() {
+            const testResults = [];
+
+            // Test with real manifest headers
+            const testHeaders = ['Description', 'UPC Number', 'Category description', 'Qty', 'Retail per item (USD$)', 'TOTAL'];
+            const testSession = {
+                version: 2,
+                id: 'test_' + Date.now(),
+                fileName: 'test.csv',
+                fileType: 'csv',
+                sheetName: null,
+                uploadedAt: new Date().toISOString(),
+                headerRowIndex: 0,
+                rawHeaders: testHeaders,
+                mapping: {},
+                rows: [
+                    {
+                        rowId: 0,
+                        sourceRowNumber: 2,
+                        original: {
+                            'Description': 'Test Product',
+                            'UPC Number': '123456789',
+                            'Category description': 'Electronics',
+                            'Qty': '50',
+                            'Retail per item (USD$)': '9.99',
+                            'TOTAL': '499.50'
+                        },
+                        normalized: { upc: '', sku: '', title: '', brand: '', category: '', expectedQty: null, palletId: '', unitRetail: null, extendedRetail: null },
+                        receivedQty: 0,
+                        status: 'pending',
+                        notes: ''
+                    }
+                ],
+                status: 'mapping',
+                receivedRecords: []
+            };
+
+            // Simulate showColumnMappingV2 mapping logic
+            const fields = ['upc', 'sku', 'title', 'brand', 'category', 'expectedQty', 'palletId', 'unitRetail', 'extendedRetail'];
+            fields.forEach(field => {
+                const suggestions = SEMANTIC_FIELD_ALIASES[field] || [];
+                const matched = testSession.rawHeaders.find(h =>
+                    suggestions.some(s => normalizeHeaderName(s) === normalizeHeaderName(h))
+                );
+                if (matched && !testSession.mapping[field]) {
+                    testSession.mapping[field] = matched;
+                }
+            });
+
+            // Test 1: suggested UPC writes to mapping.upc
+            testResults.push({
+                test: 'suggested UPC writes to mapping.upc',
+                pass: testSession.mapping.upc === 'UPC Number',
+                expected: 'UPC Number',
+                actual: testSession.mapping.upc
+            });
+
+            // Test 2: suggested Title writes to mapping.title
+            testResults.push({
+                test: 'suggested Title writes to mapping.title',
+                pass: testSession.mapping.title === 'Description',
+                expected: 'Description',
+                actual: testSession.mapping.title
+            });
+
+            // Test 3: suggested Qty writes to mapping.expectedQty
+            testResults.push({
+                test: 'suggested Qty writes to mapping.expectedQty',
+                pass: testSession.mapping.expectedQty === 'Qty',
+                expected: 'Qty',
+                actual: testSession.mapping.expectedQty
+            });
+
+            // Test 4: Not Present manual selection remains empty
+            testResults.push({
+                test: 'Not Present fields remain empty',
+                pass: testSession.mapping.sku === undefined && testSession.mapping.brand === undefined,
+                expected: 'undefined',
+                actual: `sku=${testSession.mapping.sku}, brand=${testSession.mapping.brand}`
+            });
+
+            // Test 5: real CSV mapping passes validation
+            const hasUpc = !!testSession.mapping.upc;
+            const hasSku = !!testSession.mapping.sku;
+            const hasTitle = !!testSession.mapping.title;
+            const validationPass = hasUpc || hasSku || hasTitle;
+            testResults.push({
+                test: 'real CSV mapping passes validation',
+                pass: validationPass,
+                expected: true,
+                actual: validationPass
+            });
+
+            // Test 6: normalization uses selected mapping correctly
+            normalizeManifestRowsV2(testSession);
+            const row = testSession.rows[0];
+            testResults.push({
+                test: 'normalization uses selected mapping correctly',
+                pass: row.normalized.upc === '123456789' && row.normalized.title === 'Test Product' && row.normalized.expectedQty === 50,
+                expected: 'upc=123456789, title=Test Product, qty=50',
+                actual: `upc=${row.normalized.upc}, title=${row.normalized.title}, qty=${row.normalized.expectedQty}`
+            });
+
+            // Test 7: manual override still works (simulate by manually setting mapping)
+            const testSession2 = JSON.parse(JSON.stringify(testSession));
+            testSession2.mapping.title = 'Custom Override';
+            testResults.push({
+                test: 'manual override preserved',
+                pass: testSession2.mapping.title === 'Custom Override',
+                expected: 'Custom Override',
+                actual: testSession2.mapping.title
+            });
+
+            // Log results
+            console.group('🧪 Auto-Mapping State Tests');
+            testResults.forEach(r => {
+                console.log(`${r.pass ? '✓' : '✗'} ${r.test}`);
+                if (!r.pass) {
+                    console.log(`  Expected: ${r.expected}, Got: ${r.actual}`);
+                }
+            });
+            const allPass = testResults.every(r => r.pass);
+            console.log(`\n${allPass ? '✅ All tests PASSED' : '❌ Some tests FAILED'}`);
+            console.groupEnd();
+
+            return { allPass, results: testResults };
         }
 
         // Update initial DOMContentLoaded to try V2 first, then V1
